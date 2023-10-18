@@ -3,15 +3,16 @@
 package reaper_test
 
 import (
-	"github.com/hashicorp/go-reap"
 	"os"
 	"os/exec"
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-reap"
+
 	"github.com/stretchr/testify/require"
 
-	"github.com/gage-technologies/gigo-ws/coder/agent/agent/reaper"
+	"gigo-ws/coder/agent/agent/reaper"
 )
 
 func TestReap(t *testing.T) {

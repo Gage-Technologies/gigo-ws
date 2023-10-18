@@ -9,16 +9,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gage-technologies/gigo-ws/config"
-	"github.com/gage-technologies/gigo-ws/volpool"
+	"gigo-ws/config"
+	"gigo-ws/volpool"
+
+	"gigo-ws/protos/ws"
+	"gigo-ws/provisioner"
 
 	"github.com/bwmarrin/snowflake"
 	"github.com/gage-technologies/drpc-lib/muxserver"
 	"github.com/gage-technologies/gigo-lib/cluster"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/storage"
-	"github.com/gage-technologies/gigo-ws/protos/ws"
-	"github.com/gage-technologies/gigo-ws/provisioner"
 	"storj.io/drpc/drpcmux"
 )
 

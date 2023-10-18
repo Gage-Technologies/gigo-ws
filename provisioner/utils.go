@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-ws/utils"
+	"gigo-ws/utils"
+	"path/filepath"
+
 	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/hc-install/product"
 	"github.com/hashicorp/hc-install/releases"
 	tfjson "github.com/hashicorp/terraform-json"
-	"path/filepath"
 )
 
 // getTfVersion

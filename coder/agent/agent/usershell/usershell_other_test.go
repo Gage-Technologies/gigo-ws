@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/gage-technologies/gigo-ws/coder/agent/agent/usershell"
+	"gigo-ws/coder/agent/agent/usershell"
 )
 
 func TestGet(t *testing.T) {

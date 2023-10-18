@@ -3,17 +3,18 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
-	"github.com/gage-technologies/gigo-ws/coder/agent/agent/usershell"
-	"github.com/gage-technologies/gigo-ws/utils"
-	"github.com/go-cmd/cmd"
-	"golang.org/x/xerrors"
+	"gigo-ws/coder/agent/agent/usershell"
+	"gigo-ws/utils"
 	"os"
 	"os/exec"
 	"os/user"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
+	"github.com/go-cmd/cmd"
+	"golang.org/x/xerrors"
 )
 
 // executeCommandEnv

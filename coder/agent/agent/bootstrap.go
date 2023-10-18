@@ -5,8 +5,6 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"github.com/buger/jsonparser"
-	"github.com/sourcegraph/conc/pool"
 	"io"
 	"net/http"
 	"net/url"
@@ -16,12 +14,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/buger/jsonparser"
+	"github.com/sourcegraph/conc/pool"
+
+	"gigo-ws/utils"
+
 	"cdr.dev/slog"
 	"github.com/coder/retry"
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 	"github.com/gage-technologies/gigo-lib/db/models"
 	utils2 "github.com/gage-technologies/gigo-lib/utils"
-	"github.com/gage-technologies/gigo-ws/utils"
 	"golang.org/x/xerrors"
 	"gopkg.in/yaml.v3"
 )

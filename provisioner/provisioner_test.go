@@ -9,12 +9,13 @@ import (
 	"strings"
 	"testing"
 
+	"gigo-ws/config"
+	"gigo-ws/models"
+	utils2 "gigo-ws/utils"
+
 	config2 "github.com/gage-technologies/gigo-lib/config"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/utils"
-	"github.com/gage-technologies/gigo-ws/config"
-	"github.com/gage-technologies/gigo-ws/models"
-	utils2 "github.com/gage-technologies/gigo-ws/utils"
 )
 
 const testTerraformMain = `terraform {

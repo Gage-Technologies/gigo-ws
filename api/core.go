@@ -7,12 +7,13 @@ import (
 	"os"
 	"strings"
 
+	"gigo-ws/config"
+	"gigo-ws/models"
+	"gigo-ws/provisioner"
+	"gigo-ws/volpool"
+
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/storage"
-	"github.com/gage-technologies/gigo-ws/config"
-	"github.com/gage-technologies/gigo-ws/models"
-	"github.com/gage-technologies/gigo-ws/provisioner"
-	"github.com/gage-technologies/gigo-ws/volpool"
 )
 
 //go:embed resources

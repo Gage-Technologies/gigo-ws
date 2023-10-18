@@ -5,9 +5,10 @@ import (
 	"io"
 	"strconv"
 
+	"gigo-ws/models"
+	"gigo-ws/provisioner/backend"
+
 	"github.com/buger/jsonparser"
-	"github.com/gage-technologies/gigo-ws/models"
-	"github.com/gage-technologies/gigo-ws/provisioner/backend"
 )
 
 // ParseStatefileForAgent

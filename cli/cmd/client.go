@@ -3,9 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
-	proto "github.com/gage-technologies/gigo-ws/protos/ws"
-	"github.com/google/uuid"
+	proto "gigo-ws/protos/ws"
 	"net"
+
+	"github.com/google/uuid"
 	"storj.io/drpc/drpcconn"
 )
 

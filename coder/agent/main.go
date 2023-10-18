@@ -1,18 +1,10 @@
 package main
 
 import (
-	"cdr.dev/slog"
-	"cdr.dev/slog/sloggers/sloghuman"
 	"context"
 	"fmt"
-	"github.com/bwmarrin/snowflake"
-	"github.com/gage-technologies/gigo-lib/buildinfo"
-	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
-	"github.com/gage-technologies/gigo-lib/logging"
-	"github.com/gage-technologies/gigo-ws/coder/agent/agent"
-	"github.com/gage-technologies/gigo-ws/coder/agent/agent/reaper"
-	"golang.org/x/xerrors"
-	"gopkg.in/natefinch/lumberjack.v2"
+	"gigo-ws/coder/agent/agent"
+	"gigo-ws/coder/agent/agent/reaper"
 	"log"
 	"net/http"
 	"net/http/pprof"
@@ -24,6 +16,15 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"cdr.dev/slog"
+	"cdr.dev/slog/sloggers/sloghuman"
+	"github.com/bwmarrin/snowflake"
+	"github.com/gage-technologies/gigo-lib/buildinfo"
+	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
+	"github.com/gage-technologies/gigo-lib/logging"
+	"golang.org/x/xerrors"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // dumpHandler provides a custom SIGQUIT and SIGTRAP handler that dumps the

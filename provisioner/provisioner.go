@@ -9,12 +9,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gigo-ws/config"
+	"gigo-ws/models"
+	"gigo-ws/provisioner/backend"
+	utils2 "gigo-ws/utils"
+
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/utils"
-	"github.com/gage-technologies/gigo-ws/config"
-	"github.com/gage-technologies/gigo-ws/models"
-	"github.com/gage-technologies/gigo-ws/provisioner/backend"
-	utils2 "github.com/gage-technologies/gigo-ws/utils"
 	"github.com/hashicorp/go-version"
 	tfjson "github.com/hashicorp/terraform-json"
 )

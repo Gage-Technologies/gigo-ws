@@ -1,13 +1,14 @@
 package provisioner
 
 import (
-	config2 "github.com/gage-technologies/gigo-lib/config"
-	"github.com/gage-technologies/gigo-ws/models"
-	"github.com/gage-technologies/gigo-ws/provisioner/backend"
+	"gigo-ws/models"
+	"gigo-ws/provisioner/backend"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	config2 "github.com/gage-technologies/gigo-lib/config"
 )
 
 func TestParseStatefileForAgent(t *testing.T) {

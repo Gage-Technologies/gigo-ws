@@ -6,9 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
-	"github.com/gage-technologies/gigo-lib/db/models"
-	"github.com/gage-technologies/gigo-ws/coder/agent/agent"
+	"gigo-ws/coder/agent/agent"
 	"io"
 	"net"
 	"net/netip"
@@ -24,6 +22,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
+	"github.com/gage-technologies/gigo-lib/db/models"
 
 	"golang.org/x/xerrors"
 	"tailscale.com/net/speedtest"

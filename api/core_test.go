@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/gage-technologies/gigo-ws/config"
+	"gigo-ws/config"
 	"testing"
 )
 

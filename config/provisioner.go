@@ -1,8 +1,9 @@
 package config
 
 import (
+	"gigo-ws/models"
+
 	"github.com/gage-technologies/gigo-lib/config"
-	"github.com/gage-technologies/gigo-ws/models"
 )
 
 type ProvisionerBackendConfig struct {
