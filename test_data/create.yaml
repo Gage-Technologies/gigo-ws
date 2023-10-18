@@ -1,0 +1,9 @@
+workspace_id: 5734823
+owner_id: 675872
+owner_name: test_user
+owner_email: test@example.com
+disk: 20
+cpu: 4
+memory: 4
+container: codercom/enterprise-base:ubuntu
+access_url: http://gigo.gage.intranet/api/

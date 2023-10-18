@@ -1,0 +1,473 @@
+{
+  "version": 4,
+  "terraform_version": "1.3.7",
+  "serial": 13,
+  "lineage": "252a1651-da3d-77a6-d54d-9e320728e3d7",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "data",
+      "type": "gigo_provisioner",
+      "name": "me",
+      "provider": "provider[\"terraform.local/gigo/gigo\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arch": "amd64",
+            "id": "7148ca6c-46e0-4e2a-b6ab-915c4f8ffa05",
+            "os": "linux"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "data",
+      "type": "gigo_workspace",
+      "name": "me",
+      "provider": "provider[\"terraform.local/gigo/gigo\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "access_port": 443,
+            "access_url": "https://gigo.dev",
+            "container": "codercom/enterprise-base:ubuntu",
+            "cpu": "4",
+            "disk": "20Gi",
+            "id": "420",
+            "mem": "4G",
+            "owner": "sam",
+            "owner_email": "sam@gigo.dev",
+            "owner_id": "69",
+            "start_count": 0,
+            "transition": "stop"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "gigo_agent",
+      "name": "main",
+      "provider": "provider[\"terraform.local/gigo/gigo\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arch": "amd64",
+            "id": "1620436895550922752",
+            "init_script": "echo \"agent script ran\" \u003e /tmp/agent-script-test.log",
+            "os": "linux",
+            "token": "8d6cadd6-3469-4ff8-9543-a92a6b160c64"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.gigo_provisioner.me"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "k8s_core_v1_pod",
+      "name": "main",
+      "provider": "provider[\"registry.terraform.io/mingfang/k8s\"]",
+      "instances": [
+        {
+          "index_key": 0,
+          "schema_version": 0,
+          "attributes": {
+            "id": "gigo.pod.gigo-ws-69-420",
+            "metadata": [
+              {
+                "annotations": {
+                  "io.kubernetes.cri-o.userns-mode": "auto:size=65536",
+                  "kubernetes.io/psp": "global-unrestricted-psp"
+                },
+                "creation_timestamp": "2023-01-31T15:00:37Z",
+                "deletion_grace_period_seconds": 0,
+                "deletion_timestamp": "",
+                "labels": {},
+                "name": "gigo-ws-69-420",
+                "namespace": "gigo",
+                "resource_version": "84649",
+                "self_link": "",
+                "uid": "2f23601d-9a56-4d91-b72b-b5b3e93643b0"
+              }
+            ],
+            "spec": [
+              {
+                "active_deadline_seconds": 0,
+                "affinity": [],
+                "automount_service_account_token": "",
+                "containers": [
+                  {
+                    "args": [],
+                    "command": [
+                      "sh",
+                      "-c",
+                      "      # create user\n      echo \"Creaing gigo user\"\n      useradd --create-home --shell /bin/bash gigo\n\n      # initialize the gigo home directory using /etc/skeleton\n      cp -r /etc/skel/. /home/gigo/\n\n      # change ownership of gigo directory\n      echo \"Ensuring directory ownership for gigo user\"\n      chown gigo:gigo -R /home/gigo\n\n      # disable sudo for gigo user\n      echo \"gigo ALL=(ALL) NOPASSWD:ALL\" \u003e /etc/sudoers.d/gigo\n\n      # Start the Gigo agent as the \"gigo\" user\n      # once systemd has started up\n      echo \"Waiting for systemd to start\"\n      sudo -u gigo --preserve-env=CODER_AGENT_TOKEN /bin/bash -- \u003c\u003c-'      EOT' \u0026\n      while [[ ! $(systemctl is-system-running) =~ ^(running|degraded) ]]\n      do\n        echo \"Waiting for system to start... $(systemctl is-system-running)\"\n        sleep 2\n      done\n\n      echo \"Starting Gigo agent\"\n      echo \"agent script ran\" \u003e /tmp/agent-script-test.log\n      EOT\n\n      echo \"Executing /sbin/init\"\n      exec /sbin/init\n\n      echo \"Exiting\"\n"
+                    ],
+                    "env": [
+                      {
+                        "name": "GIGO_AGENT_TOKEN",
+                        "value": "8d6cadd6-3469-4ff8-9543-a92a6b160c64",
+                        "value_from": []
+                      },
+                      {
+                        "name": "GIGO_WORKSPACE_ID",
+                        "value": "420",
+                        "value_from": []
+                      }
+                    ],
+                    "env_from": [],
+                    "image": "codercom/enterprise-base:ubuntu",
+                    "image_pull_policy": "IfNotPresent",
+                    "lifecycle": [],
+                    "liveness_probe": [],
+                    "name": "dev",
+                    "ports": [],
+                    "readiness_probe": [],
+                    "resources": [
+                      {
+                        "limits": {
+                          "cpu": "4",
+                          "memory": "4G"
+                        },
+                        "requests": {
+                          "cpu": "500m",
+                          "memory": "500Mi"
+                        }
+                      }
+                    ],
+                    "security_context": [],
+                    "startup_probe": [],
+                    "stdin": "",
+                    "stdin_once": "",
+                    "termination_message_path": "/dev/termination-log",
+                    "termination_message_policy": "File",
+                    "tty": "",
+                    "volume_devices": [],
+                    "volume_mounts": [
+                      {
+                        "mount_path": "/home/gigo",
+                        "mount_propagation": "",
+                        "name": "home",
+                        "read_only": "",
+                        "sub_path": "",
+                        "sub_path_expr": ""
+                      },
+                      {
+                        "mount_path": "/var/run/secrets/kubernetes.io/serviceaccount",
+                        "mount_propagation": "",
+                        "name": "kube-api-access-fjqlg",
+                        "read_only": "true",
+                        "sub_path": "",
+                        "sub_path_expr": ""
+                      }
+                    ],
+                    "working_dir": ""
+                  }
+                ],
+                "dns_config": [],
+                "dns_policy": "ClusterFirst",
+                "enable_service_links": "true",
+                "ephemeral_containers": [],
+                "host_aliases": [],
+                "host_ipc": "",
+                "host_network": "",
+                "host_pid": "",
+                "hostname": "",
+                "image_pull_secrets": [],
+                "init_containers": [],
+                "node_name": "",
+                "node_selector": {
+                  "sysbox-runtime": "running"
+                },
+                "os": [],
+                "overhead": {},
+                "preemption_policy": "PreemptLowerPriority",
+                "priority": 0,
+                "priority_class_name": "",
+                "readiness_gates": [],
+                "restart_policy": "Always",
+                "runtime_class_name": "sysbox-runc",
+                "scheduler_name": "default-scheduler",
+                "security_context": [
+                  {
+                    "fsgroup": 0,
+                    "fsgroup_change_policy": "",
+                    "run_asgroup": 0,
+                    "run_asnon_root": "",
+                    "run_asuser": 0,
+                    "seccomp_profile": [],
+                    "selinux_options": [],
+                    "supplemental_groups": [],
+                    "sysctls": [],
+                    "windows_options": []
+                  }
+                ],
+                "service_account": "default",
+                "service_account_name": "default",
+                "set_hostname_asfqdn": "",
+                "share_process_namespace": "",
+                "subdomain": "",
+                "termination_grace_period_seconds": 30,
+                "tolerations": [
+                  {
+                    "effect": "NoExecute",
+                    "key": "node.kubernetes.io/not-ready",
+                    "operator": "Exists",
+                    "toleration_seconds": 300,
+                    "value": ""
+                  },
+                  {
+                    "effect": "NoExecute",
+                    "key": "node.kubernetes.io/unreachable",
+                    "operator": "Exists",
+                    "toleration_seconds": 300,
+                    "value": ""
+                  }
+                ],
+                "topology_spread_constraints": [],
+                "volumes": [
+                  {
+                    "aws_elastic_block_store": [],
+                    "azure_disk": [],
+                    "azure_file": [],
+                    "cephfs": [],
+                    "cinder": [],
+                    "config_map": [],
+                    "csi": [],
+                    "downward_api": [],
+                    "empty_dir": [],
+                    "ephemeral": [],
+                    "fc": [],
+                    "flex_volume": [],
+                    "flocker": [],
+                    "gce_persistent_disk": [],
+                    "git_repo": [],
+                    "glusterfs": [],
+                    "host_path": [],
+                    "iscsi": [],
+                    "name": "home",
+                    "nfs": [],
+                    "persistent_volume_claim": [
+                      {
+                        "claim_name": "gigo-ws-69-420-home",
+                        "read_only": ""
+                      }
+                    ],
+                    "photon_persistent_disk": [],
+                    "portworx_volume": [],
+                    "projected": [],
+                    "quobyte": [],
+                    "rbd": [],
+                    "scale_io": [],
+                    "secret": [],
+                    "storageos": [],
+                    "vsphere_volume": []
+                  },
+                  {
+                    "aws_elastic_block_store": [],
+                    "azure_disk": [],
+                    "azure_file": [],
+                    "cephfs": [],
+                    "cinder": [],
+                    "config_map": [],
+                    "csi": [],
+                    "downward_api": [],
+                    "empty_dir": [],
+                    "ephemeral": [],
+                    "fc": [],
+                    "flex_volume": [],
+                    "flocker": [],
+                    "gce_persistent_disk": [],
+                    "git_repo": [],
+                    "glusterfs": [],
+                    "host_path": [],
+                    "iscsi": [],
+                    "name": "kube-api-access-fjqlg",
+                    "nfs": [],
+                    "persistent_volume_claim": [],
+                    "photon_persistent_disk": [],
+                    "portworx_volume": [],
+                    "projected": [
+                      {
+                        "default_mode": 420,
+                        "sources": [
+                          {
+                            "config_map": [],
+                            "downward_api": [],
+                            "secret": [],
+                            "service_account_token": [
+                              {
+                                "audience": "",
+                                "expiration_seconds": 3607,
+                                "path": "token"
+                              }
+                            ]
+                          },
+                          {
+                            "config_map": [
+                              {
+                                "items": [
+                                  {
+                                    "key": "ca.crt",
+                                    "mode": 0,
+                                    "path": "ca.crt"
+                                  }
+                                ],
+                                "name": "kube-root-ca.crt",
+                                "optional": ""
+                              }
+                            ],
+                            "downward_api": [],
+                            "secret": [],
+                            "service_account_token": []
+                          },
+                          {
+                            "config_map": [],
+                            "downward_api": [
+                              {
+                                "items": [
+                                  {
+                                    "field_ref": [
+                                      {
+                                        "api_version": "v1",
+                                        "field_path": "metadata.namespace"
+                                      }
+                                    ],
+                                    "mode": 0,
+                                    "path": "namespace",
+                                    "resource_field_ref": []
+                                  }
+                                ]
+                              }
+                            ],
+                            "secret": [],
+                            "service_account_token": []
+                          }
+                        ]
+                      }
+                    ],
+                    "quobyte": [],
+                    "rbd": [],
+                    "scale_io": [],
+                    "secret": [],
+                    "storageos": [],
+                    "vsphere_volume": []
+                  }
+                ]
+              }
+            ]
+          },
+          "sensitive_attributes": [
+            [
+              {
+                "type": "get_attr",
+                "value": "spec"
+              },
+              {
+                "type": "index",
+                "value": {
+                  "value": 0,
+                  "type": "number"
+                }
+              },
+              {
+                "type": "get_attr",
+                "value": "containers"
+              },
+              {
+                "type": "index",
+                "value": {
+                  "value": 0,
+                  "type": "number"
+                }
+              },
+              {
+                "type": "get_attr",
+                "value": "env"
+              },
+              {
+                "type": "index",
+                "value": {
+                  "value": 0,
+                  "type": "number"
+                }
+              },
+              {
+                "type": "get_attr",
+                "value": "value"
+              }
+            ]
+          ],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.gigo_provisioner.me",
+            "data.gigo_workspace.me",
+            "gigo_agent.main",
+            "kubernetes_persistent_volume_claim.home"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "kubernetes_persistent_volume_claim",
+      "name": "home",
+      "provider": "provider[\"registry.terraform.io/hashicorp/kubernetes\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "gigo/gigo-ws-69-420-home",
+            "metadata": [
+              {
+                "annotations": null,
+                "generate_name": "",
+                "generation": 0,
+                "labels": null,
+                "name": "gigo-ws-69-420-home",
+                "namespace": "gigo",
+                "resource_version": "84627",
+                "uid": "d6ddbeba-fc9a-4122-a1c6-690a5f9a1827"
+              }
+            ],
+            "spec": [
+              {
+                "access_modes": [
+                  "ReadWriteOnce"
+                ],
+                "resources": [
+                  {
+                    "limits": null,
+                    "requests": {
+                      "storage": "20Gi"
+                    }
+                  }
+                ],
+                "selector": [],
+                "storage_class_name": "longhorn",
+                "volume_name": ""
+              }
+            ],
+            "timeouts": null,
+            "wait_until_bound": false
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDB9fQ==",
+          "dependencies": [
+            "data.gigo_workspace.me"
+          ]
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}
