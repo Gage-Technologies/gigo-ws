@@ -80,79 +80,79 @@ resource "kubernetes_pod" "main" {
       image_pull_policy = "Always"
       # sysbox: use this command to launch systemd before the container starts
       command = ["sh", "-c", <<EOF
-    # Create gigo user if it does not exist
-    if id "$username" >/dev/null 2>&1; then
-      echo "User $username already exists"
-    else
-      # create user
-      echo "Creaing gigo user"
-      useradd --create-home --shell /bin/bash gigo
+      # Create gigo user if it does not exist
+      if id "$username" >/dev/null 2>&1; then
+        echo "User $username already exists"
+      else
+        # create user
+        echo "Creaing gigo user"
+        useradd --create-home --shell /bin/bash gigo
 
-      # initialize the gigo home directory using /etc/skeleton
-      cp -r /etc/skel/. /home/gigo/
+        # initialize the gigo home directory using /etc/skeleton
+        cp -r /etc/skel/. /home/gigo/
 
-      # change ownership of gigo directory
-      echo "Ensuring directory ownership for gigo user"
-      chown gigo:gigo -R /home/gigo
+        # change ownership of gigo directory
+        echo "Ensuring directory ownership for gigo user"
+        chown gigo:gigo -R /home/gigo
 
-      echo "User gigo created"
-    fi
-
-    # disable sudo for gigo user
-    echo "gigo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/gigo
-
-    # Install systemd if it doesn't exist
-    if [ -f /bin/systemctl ]; then
-      echo "Systemd already installed"
-    else
-      echo "Installing systemd"
-      apt-get update
-      apt-get install -y systemd
-      echo "Systemd installed"
-    fi
-
-    # Start the Gigo agent as the "gigo" user
-    # once systemd has started up
-    echo "Waiting for systemd to start"
-    sudo -u gigo \
-      --preserve-env=GIGO_AGENT_ID,GIGO_AGENT_TOKEN,GIGO_WORKSPACE_ID,PATH,VNC_SCRIPTS,VNC_SETUP_SCRIPTS,VNC_LOG_DIR,VNC_XSTARTUP,VNC_SUPERVISOR_CONFIG,VNC_PORT,VNC_DISPLAY_ID,VNC_COL_DEPTH,VNC_RESOLUTION,NO_VNC_HOME,NO_VNC_PORT,XFCE_BASE_DIR,XFCE_DEST_DIR \
-      /bin/bash -- <<-'      EOT' &
-    while [[ ! $(systemctl is-system-running) =~ ^(running|degraded) ]]
-    do
-      echo "Waiting for system to start... $(systemctl is-system-running)"
-      sleep 2
-    done
-
-    # Conditionally start the vnc client if the /gigo/vnc script exists
-    if [ -f /gigo/vnc ]; then
-      if [ -e /opt/Orchis-theme ]; then
-        echo "Installing Orchis theme..."
-        cd /opt/Orchis-theme && ./install.sh
-        cd -
-        echo "Orchis theme installed"
+        echo "User gigo created"
       fi
 
-      if [ -e /opt/Reversal-icon-theme ]; then
-        echo "Installing Orchis theme..."
-        cd /opt/Reversal-icon-theme && ./install.sh
-        cd -
-        echo "Reversal icon theme installed"
+      # disable sudo for gigo user
+      echo "gigo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/gigo
+
+      # Install systemd if it doesn't exist
+      if [ -f /bin/systemctl ]; then
+        echo "Systemd already installed"
+      else
+        echo "Installing systemd"
+        apt-get update
+        apt-get install -y systemd
+        echo "Systemd installed"
       fi
 
-      echo "Starting VNC server"
-      /gigo/vnc
-      echo "VNC server started"
-    fi
+      # Start the Gigo agent as the "gigo" user
+      # once systemd has started up
+      echo "Waiting for systemd to start"
+      sudo -u gigo \
+        --preserve-env=GIGO_AGENT_ID,GIGO_AGENT_TOKEN,GIGO_WORKSPACE_ID,PATH,VNC_SCRIPTS,VNC_SETUP_SCRIPTS,VNC_LOG_DIR,VNC_XSTARTUP,VNC_SUPERVISOR_CONFIG,VNC_PORT,VNC_DISPLAY_ID,VNC_COL_DEPTH,VNC_RESOLUTION,NO_VNC_HOME,NO_VNC_PORT,XFCE_BASE_DIR,XFCE_DEST_DIR \
+        /bin/bash -- <<-'      EOT' &
+      while [[ ! $(systemctl is-system-running) =~ ^(running|degraded) ]]
+      do
+        echo "Waiting for system to start... $(systemctl is-system-running)"
+        sleep 2
+      done
 
-    echo "Starting Gigo agent"
-    ${gigo_agent.main.init_script}
-    EOT
+      # Conditionally start the vnc client if the /gigo/vnc script exists
+      if [ -f /gigo/vnc ]; then
+        if [ -e /opt/Orchis-theme ]; then
+          echo "Installing Orchis theme..."
+          cd /opt/Orchis-theme && ./install.sh
+          cd -
+          echo "Orchis theme installed"
+        fi
 
-    echo "Executing /sbin/init"
-    exec /sbin/init
+        if [ -e /opt/Reversal-icon-theme ]; then
+          echo "Installing Orchis theme..."
+          cd /opt/Reversal-icon-theme && ./install.sh
+          cd -
+          echo "Reversal icon theme installed"
+        fi
 
-    echo "Exiting"
-    EOF
+        echo "Starting VNC server"
+        /gigo/vnc
+        echo "VNC server started"
+      fi
+
+      echo "Starting Gigo agent"
+      ${gigo_agent.main.init_script}
+      EOT
+
+      echo "Executing /sbin/init"
+      exec /sbin/init
+
+      echo "Exiting"
+      EOF
       ]
 
       env {
