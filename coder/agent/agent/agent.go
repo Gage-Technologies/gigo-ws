@@ -47,7 +47,7 @@ const (
 )
 
 type Client interface {
-	InitializeWorkspaceAgent(ctx context.Context) (agentsdk.WorkspaceAgentMetadata, error)
+	InitializeWorkspaceAgent(ctx context.Context, isVnc bool) (agentsdk.WorkspaceAgentMetadata, error)
 	ListenWorkspaceAgent(ctx context.Context) (net.Conn, error)
 	PostWorkspaceAgentState(ctx context.Context, state models.WorkspaceAgentState) error
 	PostWorkspaceAgentVersion(ctx context.Context, version string) error
@@ -173,7 +173,14 @@ func (a *agent) run(ctx context.Context) error {
 		return xerrors.Errorf("update workspace agent version: %w", err)
 	}
 
-	metadata, err := a.client.InitializeWorkspaceAgent(ctx)
+	// detect if the vnc file exists to determine if we are using vnc or not
+	isVnc := false
+	_, err = os.Stat("/gigo/vnc")
+	if err == nil {
+		isVnc = true
+	}
+
+	metadata, err := a.client.InitializeWorkspaceAgent(ctx, isVnc)
 	if err != nil {
 		// mark init failure since this is part of the remote
 		// initialization state on workspace initialization
