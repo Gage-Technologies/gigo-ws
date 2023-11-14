@@ -89,6 +89,10 @@ type ResourceUtilization struct {
 	OwnerID     int64
 	CPU         float64
 	Memory      float64
+	CPULimit    int64
+	MemoryLimit int64
+	CPUUsage    int64
+	MemoryUsage int64
 }
 
 func createWorkspace(ctx context.Context, opts createWorkspaceOptions) (*models.Agent, *provisioner.ApplyLogs, error) {
@@ -425,8 +429,8 @@ func getResourceUtil(ctx context.Context, opts getResourceUtilOptions) (*Resourc
 	containerSpec := pod.Spec.Containers[0]
 
 	// rertieve the allocations
-	allocatedCPU := float64(containerSpec.Resources.Limits.Cpu().MilliValue())
-	allocatedMemory := float64(containerSpec.Resources.Limits.Memory().MilliValue())
+	allocatedCPU := containerSpec.Resources.Limits.Cpu().MilliValue()
+	allocatedMemory := containerSpec.Resources.Limits.Memory().MilliValue()
 
 	// retrieve the pods utilization
 	podMetrics, err := opts.MetricsClient.
@@ -445,12 +449,16 @@ func getResourceUtil(ctx context.Context, opts getResourceUtilOptions) (*Resourc
 	util := ResourceUtilization{
 		WorkspaceID: opts.WorkspaceID,
 		OwnerID:     opts.OwnerID,
+		CPULimit:    allocatedCPU,
+		MemoryLimit: allocatedMemory,
 	}
 
 	// calculate the percentage of the utilization
 	for _, c := range podMetrics.Containers {
-		util.CPU += float64(c.Usage.Cpu().MilliValue()) / allocatedCPU
-		util.Memory += float64(c.Usage.Memory().MilliValue()) / allocatedMemory
+		util.CPUUsage = c.Usage.Cpu().MilliValue()
+		util.MemoryUsage = c.Usage.Memory().MilliValue()
+		util.CPU = float64(util.CPUUsage) / float64(allocatedCPU)
+		util.Memory = float64(util.MemoryUsage) / float64(allocatedMemory)
 	}
 
 	return &util, nil

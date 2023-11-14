@@ -483,9 +483,13 @@ func (s *ProvisionerApiServer) GetResourceUtil(ctx context.Context, request *ws.
 	s.Logger.Debug(fmt.Errorf("GetResourceUtilResponse (%d): completed retrieve resource util: %d", ctx.Value("id"), request.GetWorkspaceId()))
 
 	return &ws.GetResourceUtilResponse{
-		Status: ws.ResponseCode_SUCCESS,
-		Cpu:    util.CPU,
-		Memory: util.Memory,
+		Status:      ws.ResponseCode_SUCCESS,
+		Cpu:         util.CPU,
+		Memory:      util.Memory,
+		CpuLimit:    util.CPULimit,
+		MemoryLimit: util.MemoryLimit,
+		CpuUsage:    util.CPUUsage,
+		MemoryUsage: util.MemoryUsage,
 	}, nil
 }
 
