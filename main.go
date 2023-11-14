@@ -24,6 +24,9 @@ import (
 	"github.com/gage-technologies/gigo-lib/storage"
 	"github.com/syossan27/tebata"
 	etcd "go.etcd.io/etcd/client/v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 // TODO: add graceful shutdown
@@ -82,6 +85,24 @@ func main() {
 	}
 
 	fmt.Println("Registry Caches: ", cfg.RegistryCaches)
+
+	// Use the current context in kubeconfig
+	config, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
+	if err != nil {
+		log.Fatal("failed to build kubernetes config: ", err)
+	}
+
+	// Create a Kubernetes client
+	kubeClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Fatal("failed to create kubernetes client: ", err)
+	}
+
+	// Create a Metrics client
+	metricsClient, err := versioned.NewForConfig(config)
+	if err != nil {
+		log.Fatal("failed to create metrics client: ", err)
+	}
 
 	// create a snowflake node to create node ids for the provisioners
 	// we reserve node number 1021 for provisioners so that there are not id
@@ -235,6 +256,8 @@ func main() {
 		ClusterNode:     clusterNode,
 		Provisioner:     prov,
 		Volpool:         vpool,
+		KubeClient:      kubeClient,
+		MetricsClient:   metricsClient,
 		StorageEngine:   storageEngine,
 		SnowflakeNode:   snowflakeNode,
 		Host:            cfg.Server.Host,

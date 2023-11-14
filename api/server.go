@@ -20,6 +20,8 @@ import (
 	"github.com/gage-technologies/gigo-lib/cluster"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/storage"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/metrics/pkg/client/clientset/versioned"
 	"storj.io/drpc/drpcmux"
 )
 
@@ -33,6 +35,8 @@ type ProvisionerApiServerOptions struct {
 	Provisioner     *provisioner.Provisioner
 	Volpool         *volpool.VolumePool
 	StorageEngine   storage.Storage
+	KubeClient      *kubernetes.Clientset
+	MetricsClient   *versioned.Clientset
 	SnowflakeNode   *snowflake.Node
 	Host            string
 	Port            int
@@ -439,6 +443,49 @@ func (s *ProvisionerApiServer) DestroyWorkspace(ctx context.Context, request *ws
 
 	return &ws.DestroyWorkspaceResponse{
 		Status: ws.ResponseCode_SUCCESS,
+	}, nil
+}
+
+// GetResourceUtil
+//
+//	Retrieves the resource utilization of a workspace
+func (s *ProvisionerApiServer) GetResourceUtil(ctx context.Context, request *ws.GetResourceUtilRequest) (*ws.GetResourceUtilResponse, error) {
+	// validate id
+	if request.WorkspaceId < 1 {
+		s.Logger.Warn(fmt.Errorf("GetResourceUtilResponse (%d): invalid workspace id: %d", ctx.Value("id"), request.GetWorkspaceId()))
+		return &ws.GetResourceUtilResponse{
+			Status: ws.ResponseCode_MALFORMED_REQUEST,
+			Error: &ws.Error{
+				GoError: "invalid workspace id",
+			},
+		}, nil
+	}
+
+	s.Logger.Debug(fmt.Errorf("GetResourceUtilResponse (%d): beginning retrieve resource util: %d", ctx.Value("id"), request.GetWorkspaceId()))
+
+	// perform workspace stop
+	util, err := getResourceUtil(ctx, getResourceUtilOptions{
+		KubeClient:    s.KubeClient,
+		MetricsClient: s.MetricsClient,
+		WorkspaceID:   request.GetWorkspaceId(),
+		OwnerID:       request.GetOwnerId(),
+	})
+	if err != nil {
+		s.Logger.Warn(fmt.Errorf("GetResourceUtilResponse (%d): failed to retrieve resource util: %v", ctx.Value("id"), err))
+		return &ws.GetResourceUtilResponse{
+			Status: ws.ResponseCode_SERVER_EXECUTION_ERROR,
+			Error: &ws.Error{
+				GoError: err.Error(),
+			},
+		}, nil
+	}
+
+	s.Logger.Debug(fmt.Errorf("GetResourceUtilResponse (%d): completed retrieve resource util: %d", ctx.Value("id"), request.GetWorkspaceId()))
+
+	return &ws.GetResourceUtilResponse{
+		Status: ws.ResponseCode_SUCCESS,
+		Cpu:    util.CPU,
+		Memory: util.Memory,
 	}, nil
 }
 

@@ -14,6 +14,9 @@ import (
 
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/storage"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 //go:embed resources
@@ -72,6 +75,20 @@ type destroyWorkspaceOptions struct {
 	StorageEngine storage.Storage
 	Logger        logging.Logger
 	WorkspaceID   int64
+}
+
+type getResourceUtilOptions struct {
+	KubeClient    *kubernetes.Clientset
+	MetricsClient *versioned.Clientset
+	WorkspaceID   int64
+	OwnerID       int64
+}
+
+type ResourceUtilization struct {
+	WorkspaceID int64
+	OwnerID     int64
+	CPU         float64
+	Memory      float64
 }
 
 func createWorkspace(ctx context.Context, opts createWorkspaceOptions) (*models.Agent, *provisioner.ApplyLogs, error) {
@@ -388,6 +405,55 @@ func destroyWorkspace(ctx context.Context, opts destroyWorkspaceOptions) (*provi
 	}
 
 	return logs, nil
+}
+
+func getResourceUtil(ctx context.Context, opts getResourceUtilOptions) (*ResourceUtilization, error) {
+	// retrieve the pods specification
+	pod, err := opts.KubeClient.
+		CoreV1().
+		Pods("gigo-ws-prov-plane").
+		Get(
+			context.TODO(),
+			fmt.Sprintf("gigo-ws-%d-%d", opts.OwnerID, opts.WorkspaceID),
+			metav1.GetOptions{},
+		)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch pod spec: %w", err)
+	}
+
+	// retrieve the first container
+	containerSpec := pod.Spec.Containers[0]
+
+	// rertieve the allocations
+	allocatedCPU := float64(containerSpec.Resources.Limits.Cpu().MilliValue())
+	allocatedMemory := float64(containerSpec.Resources.Limits.Memory().MilliValue())
+
+	// retrieve the pods utilization
+	podMetrics, err := opts.MetricsClient.
+		MetricsV1beta1().
+		PodMetricses("gigo-ws-prov-plane").
+		Get(
+			ctx,
+			fmt.Sprintf("gigo-ws-%d-%d", opts.OwnerID, opts.WorkspaceID),
+			metav1.GetOptions{},
+		)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch metrics: %w", err)
+	}
+
+	// create a new resource utilization object
+	util := ResourceUtilization{
+		WorkspaceID: opts.WorkspaceID,
+		OwnerID:     opts.OwnerID,
+	}
+
+	// calculate the percentage of the utilization
+	for _, c := range podMetrics.Containers {
+		util.CPU += float64(c.Usage.Cpu().MilliValue()) / allocatedCPU
+		util.Memory += float64(c.Usage.Memory().MilliValue()) / allocatedMemory
+	}
+
+	return &util, nil
 }
 
 func prepEnvironmentForCreation(opts templateOptions) []string {
