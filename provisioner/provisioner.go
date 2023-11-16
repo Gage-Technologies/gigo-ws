@@ -274,10 +274,10 @@ func (p *Provisioner) Apply(ctx context.Context, module *models.TerraformModule)
 		applyResult.StdOut = append(applyResult.StdOut, m)
 	}
 
-	b, _ := json.Marshal(applyResult.StdOut)
-	p.logger.Debugf("apply op internal logs %d:\n---\n%s\n---\n", module.ModuleID, string(b))
+	// b, _ := json.Marshal(applyResult.StdOut)
+	// p.logger.Debugf("apply op internal logs %d:\n---\n%s\n---\n", module.ModuleID, string(b))
 
-	p.logger.Debugf("debug stderr %d\n---\n%s\n---", module.ModuleID, res.Stderr)
+	// p.logger.Debugf("debug stderr %d\n---\n%s\n---", module.ModuleID, res.Stderr)
 
 	// // parse stderr jsonl from apply responses
 	// for _, l := range strings.Split(res.Stderr, "\n") {

@@ -9,7 +9,7 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cakturk/go-netstat v0.0.0-20200220111822-e5b49efee7a5
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20231110164400-6ea38fdd14a0
+	github.com/gage-technologies/gigo-lib v0.0.0-20231115144633-601042869fad
 	github.com/gliderlabs/ssh v0.3.4
 	github.com/go-cmd/cmd v1.4.1
 	github.com/google/uuid v1.3.0
