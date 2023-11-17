@@ -310,7 +310,52 @@ func (a *agent) run(ctx context.Context) error {
 		a.logger.Debug(ctx, "failed creating ziti agent", slog.Error(err))
 		return xerrors.Errorf("create ziti agent: %w", err)
 	}
+
+	durationChangeChan := make(chan time.Duration)
+	setStatInterval := func(d time.Duration) {
+		durationChangeChan <- d
+	}
+	go a.watchNetworkStats(ctx, durationChangeChan)
+
+	// Report statistics from the ziti network.
+	cl, err := a.client.AgentReportStats(ctx, a.logger, a.connStatsChan, setStatInterval)
+	if err != nil {
+		a.logger.Error(ctx, "report stats", slog.Error(err))
+	} else {
+		if err = a.trackConnGoroutine(func() {
+			// This is OK because the agent never re-creates the tailnet
+			// and the only shutdown indicator is agent.Close().
+			<-a.closed
+			_ = cl.Close()
+		}); err != nil {
+			a.logger.Debug(ctx, "report stats goroutine", slog.Error(err))
+			_ = cl.Close()
+		}
+	}
+
 	return nil
+}
+
+func (a *agent) watchNetworkStats(ctx context.Context, durationChangeChan <-chan time.Duration) {
+	ticker := time.NewTicker(time.Minute * 10)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case d := <-durationChangeChan:
+			ticker.Reset(d)
+		case <-ticker.C:
+			if a.zitiAgent == nil {
+				continue
+			}
+			// retrieve the latest network stats
+			stats := a.zitiAgent.GetNetworkStats()
+			// clear the net stats
+			a.zitiAgent.ClearStats()
+			// convert the stats into agent format and write to the channel
+			a.connStatsChan <- convertAgentStats(stats)
+		}
+	}
 }
 
 func (a *agent) trackConnGoroutine(fn func()) error {

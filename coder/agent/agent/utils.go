@@ -3,30 +3,33 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
-	"golang.org/x/xerrors"
 	"io"
 	"os"
 	"os/user"
+	"strings"
 	"sync"
-	"tailscale.com/types/netlogtype"
+
+	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
+	"golang.org/x/xerrors"
 )
 
-func convertAgentStats(counts map[netlogtype.Connection]netlogtype.Counts) *agentsdk.AgentStats {
-	stats := &agentsdk.AgentStats{
+func convertAgentStats(stats zitimesh.GlobalStats) *agentsdk.AgentStats {
+	agentStats := &agentsdk.AgentStats{
 		ConnsByProto: map[string]int64{},
-		NumConns:     int64(len(counts)),
+		NumConns:     0,
+		RxPackets:    stats.Total.PacketsIn,
+		TxPackets:    stats.Total.PacketsOut,
+		RxBytes:      stats.Total.BytesIn,
+		TxBytes:      stats.Total.BytesOut,
 	}
 
-	for conn, count := range counts {
-		stats.ConnsByProto[conn.Proto.String()]++
-		stats.RxPackets += int64(count.RxPackets)
-		stats.RxBytes += int64(count.RxBytes)
-		stats.TxPackets += int64(count.TxPackets)
-		stats.TxBytes += int64(count.TxBytes)
+	for _, portStats := range stats.ByPort {
+		agentStats.NumConns++
+		agentStats.ConnsByProto[strings.ToUpper(string(portStats.NetworkType))]++
 	}
 
-	return stats
+	return agentStats
 }
 
 // Bicopy copies all of the data between the two connections and will close them
