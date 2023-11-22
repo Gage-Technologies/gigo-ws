@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -22,6 +23,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/gliderlabs/ssh"
+	"github.com/openziti/sdk-golang/ziti"
 	"github.com/pkg/sftp"
 	"github.com/spf13/afero"
 	gossh "golang.org/x/crypto/ssh"
@@ -315,6 +317,8 @@ func (a *agent) run(ctx context.Context) error {
 		return xerrors.Errorf("create ziti agent: %w", err)
 	}
 
+	a.logger.Debug(ctx, "ziti agent created")
+
 	durationChangeChan := make(chan time.Duration)
 	setStatInterval := func(d time.Duration) {
 		durationChangeChan <- d
@@ -335,6 +339,12 @@ func (a *agent) run(ctx context.Context) error {
 			a.logger.Debug(ctx, "report stats goroutine", slog.Error(err))
 			_ = cl.Close()
 		}
+	}
+
+	// watch the ziti agent and restart if necessary
+	for {
+		time.Sleep(time.Second * 5)
+		// TODO: check ziti agent state
 	}
 
 	return nil
@@ -387,10 +397,39 @@ func (a *agent) createZitiAgent(ctx context.Context) error {
 		return xerrors.Errorf("metadata is the wrong type: %T", metadata)
 	}
 
-	var err error
-	a.zitiAgent, err = zitimesh.NewAgent(ctx, metadata.ZitiID, metadata.ZitiToken, a.logger)
-	if err != nil {
-		return xerrors.Errorf("failed to create ziti agent: %w", err)
+	// check if there is an identity on the disk
+	if buf, err := os.ReadFile("/home/gigo/.gigo/identity.ziti"); err == nil {
+		// parse the token and create the agent from an identity
+		var identity ziti.Config
+		err := json.Unmarshal(buf, &identity)
+		if err != nil {
+			return xerrors.Errorf("unable to unmarshall identity config: %w", err)
+		}
+
+		a.zitiAgent, err = zitimesh.NewAgent(ctx, metadata.ZitiID, &identity, a.logger)
+		if err != nil {
+			return xerrors.Errorf("failed to create ziti agent: %w", err)
+		}
+	} else {
+		var err error
+		var identity *ziti.Config
+		a.zitiAgent, identity, err = zitimesh.NewAgentFromToken(ctx, metadata.ZitiID, metadata.ZitiToken, a.logger)
+		if err != nil {
+			// TODO: remove this - super insecure - only for dev env testing
+			a.logger.Debug(ctx, "ziti enrollment token", slog.F("token", metadata.ZitiToken), slog.F("id", metadata.ZitiID))
+			return xerrors.Errorf("failed to create ziti agent: %w", err)
+		}
+
+		// save the identity to the disk
+		if err := os.MkdirAll("/home/gigo/.gigo", 0700); err != nil {
+			return xerrors.Errorf("failed to create .gigo directory: %w", err)
+		}
+		if buf, err = json.Marshal(identity); err != nil {
+			return xerrors.Errorf("failed to marshall identity config: %w", err)
+		}
+		if err := os.WriteFile("/home/gigo/.gigo/identity.ziti", buf, 0600); err != nil {
+			return xerrors.Errorf("failed to write identity to disk: %w", err)
+		}
 	}
 
 	return nil
