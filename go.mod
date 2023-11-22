@@ -4,12 +4,11 @@ go 1.20
 
 require (
 	cdr.dev/slog v1.4.2-0.20220525200111-18dce5c2cd5f
-	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2
 	github.com/buger/jsonparser v1.1.1
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cakturk/go-netstat v0.0.0-20200220111822-e5b49efee7a5
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20231117175913-5c62d0868389
+	github.com/gage-technologies/gigo-lib v0.0.0-20231121222225-6be817498a3d
 	github.com/gliderlabs/ssh v0.3.4
 	github.com/go-cmd/cmd v1.4.1
 	github.com/google/uuid v1.4.0
@@ -26,7 +25,6 @@ require (
 	github.com/syossan27/tebata v0.0.0-20180602121909-b283fe4bc5ba
 	go.etcd.io/etcd/client/v3 v3.5.7
 	golang.org/x/crypto v0.15.0
-	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
@@ -35,7 +33,6 @@ require (
 	k8s.io/client-go v0.28.3
 	k8s.io/metrics v0.28.3
 	storj.io/drpc v0.0.33-0.20220622181519-9206537a4db7
-	tailscale.com v1.36.0
 )
 
 require (
@@ -109,6 +106,7 @@ require (
 	go.opentelemetry.io/otel v1.20.0 // indirect
 	go.opentelemetry.io/otel/metric v1.20.0 // indirect
 	go.opentelemetry.io/otel/trace v1.20.0 // indirect
+	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
@@ -119,6 +117,7 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
+	tailscale.com v1.36.0 // indirect
 )
 
 require (

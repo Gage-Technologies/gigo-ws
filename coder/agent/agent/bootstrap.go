@@ -327,6 +327,7 @@ func (a *agent) installCodeServer(ctx context.Context, metadata agentsdk.Workspa
 			"HOME=/home/gigo",
 			fmt.Sprintf("GIGO_AGENT_TOKEN=%s", auth.Token),
 			fmt.Sprintf("GIGO_WORKSPACE_ID=%d", auth.WorkspaceID),
+			fmt.Sprintf("GIGO_API_URL=%s", strings.TrimSuffix(a.accessUrl.String(), "/")),
 		}
 
 		// install code-server

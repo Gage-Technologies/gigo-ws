@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"sync"
@@ -60,6 +61,7 @@ type Options struct {
 	Filesystem             afero.Fs
 	TempDir                string
 	Client                 Client
+	AccessUrl              *url.URL
 	ReconnectingPTYTimeout time.Duration
 	EnvironmentVariables   map[string]string
 	Logger                 slog.Logger
@@ -73,6 +75,7 @@ type agent struct {
 	filesystem    afero.Fs
 	tempDir       string
 	snowflakeNode *snowflake.Node
+	accessUrl     *url.URL
 
 	reconnectingPTYs       sync.Map
 	reconnectingPTYTimeout time.Duration
@@ -114,6 +117,7 @@ func New(options Options) io.Closer {
 		closed:                 make(chan struct{}),
 		envVars:                options.EnvironmentVariables,
 		client:                 options.Client,
+		accessUrl:              options.AccessUrl,
 		filesystem:             options.Filesystem,
 		tempDir:                options.TempDir,
 		agentStateUpdate:       make(chan struct{}, 1),

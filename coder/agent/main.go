@@ -250,6 +250,7 @@ func main() {
 	closer := agent.New(agent.Options{
 		ID:                   agentId,
 		Client:               client,
+		AccessUrl:            coreUrl,
 		Logger:               logger,
 		EnvironmentVariables: make(map[string]string),
 		SnowflakeNode:        snowflakeNode,
