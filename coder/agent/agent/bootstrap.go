@@ -716,7 +716,7 @@ func (a *agent) runCodeServer(ctx context.Context) (*utils.CommandResult, error)
 		a.logger.Info(ctx, "attempting code-server launch", slog.F("attempt", failedCount+1))
 
 		// launch code-server inside agent environments
-		res, err := a.executeCommandEnv(ctx, nil, "", "code-server --auth none --port 13337 -an 'Gigo Workspace' -w 'Welcome to Gigo!' --disable-getting-started-override --disable-telemetry")
+		res, err := a.executeCommandEnv(ctx, nil, "", "code-server --auth none --port 13337 -an 'Gigo Workspace' -w 'Welcome to Gigo!' --disable-getting-started-override --disable-telemetry --disable-workspace-trust")
 
 		// TODO: update agent state
 

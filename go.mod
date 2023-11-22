@@ -8,7 +8,7 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cakturk/go-netstat v0.0.0-20200220111822-e5b49efee7a5
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20231122134827-8127c33019af
+	github.com/gage-technologies/gigo-lib v0.0.0-20231122160600-6681573bba9a
 	github.com/gliderlabs/ssh v0.3.4
 	github.com/go-cmd/cmd v1.4.1
 	github.com/google/uuid v1.4.0
@@ -16,6 +16,7 @@ require (
 	github.com/hashicorp/go-version v1.6.0
 	github.com/hashicorp/hc-install v0.4.1-0.20220912074615-4487b02cbcbb
 	github.com/hashicorp/terraform-json v0.14.0
+	github.com/openziti/sdk-golang v0.21.1
 	github.com/pkg/sftp v1.13.6-0.20221018182125-7da137aa03f0
 	github.com/pterm/pcli v0.4.6
 	github.com/pterm/pterm v0.12.54
@@ -86,7 +87,6 @@ require (
 	github.com/openziti/foundation/v2 v2.0.33 // indirect
 	github.com/openziti/identity v1.0.66 // indirect
 	github.com/openziti/metrics v1.2.38 // indirect
-	github.com/openziti/sdk-golang v0.21.1 // indirect
 	github.com/openziti/secretstream v0.1.12 // indirect
 	github.com/openziti/transport/v2 v2.0.113 // indirect
 	github.com/orcaman/concurrent-map/v2 v2.0.1 // indirect
