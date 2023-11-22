@@ -240,7 +240,7 @@ install_standalone() {
   echoh
 
   # use the local network cache of code-server
-  fetch "https://api.gigo.dev/internal/v1/ws/code-server?version=$VERSION&arch=$ARCH&os=$OS&type=tar" \
+  fetch "$GIGO_API_URL/internal/v1/ws/code-server?version=$VERSION&arch=$ARCH&os=$OS&type=tar" \
     "$CACHE_DIR/code-server-$VERSION-$OS-$ARCH.tar.gz"
 
   # -w only works if the directory exists so try creating it first. If this

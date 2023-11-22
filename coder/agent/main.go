@@ -22,7 +22,6 @@ import (
 	"github.com/bwmarrin/snowflake"
 	"github.com/gage-technologies/gigo-lib/buildinfo"
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
-	"github.com/gage-technologies/gigo-lib/logging"
 	"golang.org/x/xerrors"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -201,21 +200,6 @@ func main() {
 	defer logWriter.Close()
 	logger := slog.Make(sloghuman.Sink(os.Stdout), sloghuman.Sink(logWriter)).Leveled(slog.LevelDebug)
 
-	// create logger for tailnet
-	// since all of the gigo systems use out logrus based
-	// logger we cannot use the slog logger above so we
-	// have to create a compliant logger to be used just
-	// for tailnet
-	tailnetLogger, err := logging.CreateBasicLogger(
-		logging.NewDefaultBasicLoggerOptions(filepath.Join(os.TempDir(), "gigo-agent-tailent.log")),
-	)
-	if err != nil {
-		log.Fatalf("failed to create tailnet logger: %v", err)
-	}
-	defer func() {
-		tailnetLogger.Flush()
-	}()
-
 	isLinux := runtime.GOOS == "linux"
 
 	// Spawn a reaper so that we don't accumulate a ton
@@ -266,8 +250,8 @@ func main() {
 	closer := agent.New(agent.Options{
 		ID:                   agentId,
 		Client:               client,
+		AccessUrl:            coreUrl,
 		Logger:               logger,
-		TailnetLogger:        tailnetLogger,
 		EnvironmentVariables: make(map[string]string),
 		SnowflakeNode:        snowflakeNode,
 	})

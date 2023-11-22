@@ -4,15 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
-	"net/netip"
+	"net/url"
 	"os"
 	"os/exec"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,17 +20,14 @@ import (
 	"github.com/coder/retry"
 	"github.com/gage-technologies/gigo-lib/buildinfo"
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
-	"github.com/gage-technologies/gigo-lib/coder/tailnet"
 	"github.com/gage-technologies/gigo-lib/db/models"
-	"github.com/gage-technologies/gigo-lib/logging"
+	"github.com/gage-technologies/gigo-lib/zitimesh"
 	"github.com/gliderlabs/ssh"
+	"github.com/openziti/sdk-golang/ziti"
 	"github.com/pkg/sftp"
 	"github.com/spf13/afero"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/xerrors"
-	"tailscale.com/net/speedtest"
-	"tailscale.com/tailcfg"
-	"tailscale.com/types/netlogtype"
 )
 
 const (
@@ -68,24 +63,21 @@ type Options struct {
 	Filesystem             afero.Fs
 	TempDir                string
 	Client                 Client
+	AccessUrl              *url.URL
 	ReconnectingPTYTimeout time.Duration
 	EnvironmentVariables   map[string]string
 	Logger                 slog.Logger
-	TailnetLogger          logging.Logger
 	SnowflakeNode          *snowflake.Node
 }
 
 type agent struct {
-	id     int64
-	logger slog.Logger
-	// we use a different logger for tailnet to keep consistent
-	// with the backend systems that use a custom interface over
-	// a logrus based logger
-	tailnetLogger logging.Logger
+	id            int64
+	logger        slog.Logger
 	client        Client
 	filesystem    afero.Fs
 	tempDir       string
 	snowflakeNode *snowflake.Node
+	accessUrl     *url.URL
 
 	reconnectingPTYs       sync.Map
 	reconnectingPTYTimeout time.Duration
@@ -104,7 +96,7 @@ type agent struct {
 	agentStateLock   sync.Mutex // Protects following.
 	agentState       models.WorkspaceAgentState
 
-	network       *tailnet.Conn
+	zitiAgent     *zitimesh.Agent
 	connStatsChan chan *agentsdk.AgentStats
 }
 
@@ -127,11 +119,11 @@ func New(options Options) io.Closer {
 		closed:                 make(chan struct{}),
 		envVars:                options.EnvironmentVariables,
 		client:                 options.Client,
+		accessUrl:              options.AccessUrl,
 		filesystem:             options.Filesystem,
 		tempDir:                options.TempDir,
 		agentStateUpdate:       make(chan struct{}, 1),
 		snowflakeNode:          options.SnowflakeNode,
-		tailnetLogger:          options.TailnetLogger,
 		connStatsChan:          make(chan *agentsdk.AgentStats, 1),
 	}
 	a.init(ctx)
@@ -318,75 +310,72 @@ func (a *agent) run(ctx context.Context) error {
 		}()
 	}
 
-	// TODO: really think about if we want to have an app type and system
-	// This automatically closes when the context ends!
-	// appReporterCtx, appReporterCtxCancel := context.WithCancel(ctx)
-	// defer appReporterCtxCancel()
-	// go NewWorkspaceAppHealthReporter(
-	// 	a.logger, metadata.Apps, a.client.PostWorkspaceAgentAppHealth)(appReporterCtx)
+	a.logger.Debug(ctx, "launching init connection server")
+	a.initConnectionServer(ctx)
 
-	a.logger.Debug(ctx, "running tailnet with derpmap", slog.F("derpmap", metadata.DERPMap))
+	a.logger.Debug(ctx, "reserving unused gigo ports")
+	a.reserveUnusedGigoPorts(ctx)
 
-	a.closeMutex.Lock()
-	network := a.network
-	a.closeMutex.Unlock()
-	if network == nil {
-		a.logger.Debug(ctx, "creating tailnet")
-		network, err = a.createTailnet(ctx, metadata.DERPMap)
-		if err != nil {
-			return xerrors.Errorf("create tailnet: %w", err)
-		}
-		a.closeMutex.Lock()
-		// Re-check if agent was closed while initializing the network.
-		closed := a.isClosed()
-		if !closed {
-			a.network = network
-		}
-		a.closeMutex.Unlock()
-		if closed {
-			_ = network.Close()
-			return xerrors.New("agent is closed")
-		}
-
-		setStatInterval := func(d time.Duration) {
-			network.SetConnStatsCallback(d, 2048,
-				func(_, _ time.Time, virtual, _ map[netlogtype.Connection]netlogtype.Counts) {
-					select {
-					case a.connStatsChan <- convertAgentStats(virtual):
-					default:
-						a.logger.Warn(ctx, "network stat dropped")
-					}
-				},
-			)
-		}
-
-		// Report statistics from the created network.
-		cl, err := a.client.AgentReportStats(ctx, a.logger, a.connStatsChan, setStatInterval)
-		if err != nil {
-			a.logger.Error(ctx, "report stats", slog.Error(err))
-		} else {
-			if err = a.trackConnGoroutine(func() {
-				// This is OK because the agent never re-creates the tailnet
-				// and the only shutdown indicator is agent.Close().
-				<-a.closed
-				_ = cl.Close()
-			}); err != nil {
-				a.logger.Debug(ctx, "report stats goroutine", slog.Error(err))
-				_ = cl.Close()
-			}
-		}
-	} else {
-		// Update the DERP map!
-		network.SetDERPMap(metadata.DERPMap)
-	}
-
-	a.logger.Debug(ctx, "running coordinator")
-	err = a.runCoordinator(ctx, network)
+	a.logger.Debug(ctx, "creating ziti agent")
+	err = a.createZitiAgent(ctx)
 	if err != nil {
-		a.logger.Debug(ctx, "coordinator exited", slog.Error(err))
-		return xerrors.Errorf("run coordinator: %w", err)
+		a.logger.Debug(ctx, "failed creating ziti agent", slog.Error(err))
+		return xerrors.Errorf("create ziti agent: %w", err)
 	}
+
+	a.logger.Debug(ctx, "ziti agent created")
+
+	durationChangeChan := make(chan time.Duration)
+	setStatInterval := func(d time.Duration) {
+		durationChangeChan <- d
+	}
+	go a.watchNetworkStats(ctx, durationChangeChan)
+
+	// Report statistics from the ziti network.
+	cl, err := a.client.AgentReportStats(ctx, a.logger, a.connStatsChan, setStatInterval)
+	if err != nil {
+		a.logger.Error(ctx, "report stats", slog.Error(err))
+	} else {
+		if err = a.trackConnGoroutine(func() {
+			// This is OK because the agent never re-creates the tailnet
+			// and the only shutdown indicator is agent.Close().
+			<-a.closed
+			_ = cl.Close()
+		}); err != nil {
+			a.logger.Debug(ctx, "report stats goroutine", slog.Error(err))
+			_ = cl.Close()
+		}
+	}
+
+	// watch the ziti agent and restart if necessary
+	for {
+		time.Sleep(time.Second * 5)
+		// TODO: check ziti agent state
+	}
+
 	return nil
+}
+
+func (a *agent) watchNetworkStats(ctx context.Context, durationChangeChan <-chan time.Duration) {
+	ticker := time.NewTicker(time.Minute * 10)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case d := <-durationChangeChan:
+			ticker.Reset(d)
+		case <-ticker.C:
+			if a.zitiAgent == nil {
+				continue
+			}
+			// retrieve the latest network stats
+			stats := a.zitiAgent.GetNetworkStats()
+			// clear the net stats
+			a.zitiAgent.ClearStats()
+			// convert the stats into agent format and write to the channel
+			a.connStatsChan <- convertAgentStats(stats)
+		}
+	}
 }
 
 func (a *agent) trackConnGoroutine(fn func()) error {
@@ -403,151 +392,53 @@ func (a *agent) trackConnGoroutine(fn func()) error {
 	return nil
 }
 
-func (a *agent) createTailnet(ctx context.Context, derpMap *tailcfg.DERPMap) (_ *tailnet.Conn, err error) {
-	a.tailnetLogger.Infof("creating connnection with node id: %d", a.id)
-
-	// TODO: evaluate if this needs to be set back to the agent id
-	connectionID := a.snowflakeNode.Generate().Int64()
-	network, err := tailnet.NewConn(tailnet.ConnTypeAgent, &tailnet.Options{
-		NodeID:    connectionID,
-		Addresses: []netip.Prefix{netip.PrefixFrom(agentsdk.TailnetIP, 128)},
-		DERPMap:   derpMap,
-	}, a.tailnetLogger)
-	if err != nil {
-		return nil, xerrors.Errorf("create tailnet: %w", err)
+func (a *agent) createZitiAgent(ctx context.Context) error {
+	// load the metadata to get the ziti token
+	rawMetadata := a.metadata.Load()
+	if rawMetadata == nil {
+		return xerrors.Errorf("no metadata was provided")
 	}
-	defer func() {
+	metadata, valid := rawMetadata.(agentsdk.WorkspaceAgentMetadata)
+	if !valid {
+		return xerrors.Errorf("metadata is the wrong type: %T", metadata)
+	}
+
+	// check if there is an identity on the disk
+	if buf, err := os.ReadFile("/home/gigo/.gigo/identity.ziti"); err == nil {
+		// parse the token and create the agent from an identity
+		var identity ziti.Config
+		err := json.Unmarshal(buf, &identity)
 		if err != nil {
-			network.Close()
+			return xerrors.Errorf("unable to unmarshall identity config: %w", err)
 		}
-	}()
 
-	sshListener, err := network.Listen("tcp", ":"+strconv.Itoa(agentsdk.TailnetSSHPort))
-	if err != nil {
-		return nil, xerrors.Errorf("listen on the ssh port: %w", err)
-	}
-	defer func() {
+		a.zitiAgent, err = zitimesh.NewAgent(ctx, metadata.ZitiID, &identity, a.logger)
 		if err != nil {
-			_ = sshListener.Close()
+			return xerrors.Errorf("failed to create ziti agent: %w", err)
 		}
-	}()
-	if err = a.trackConnGoroutine(func() {
-		for {
-			conn, err := sshListener.Accept()
-			if err != nil {
-				return
-			}
-			closed := make(chan struct{})
-			_ = a.trackConnGoroutine(func() {
-				select {
-				case <-network.Closed():
-				case <-closed:
-				}
-				_ = conn.Close()
-			})
-			_ = a.trackConnGoroutine(func() {
-				defer close(closed)
-				a.sshServer.HandleConn(conn)
-			})
-		}
-	}); err != nil {
-		return nil, err
-	}
-
-	reconnectingPTYListener, err := network.Listen("tcp", ":"+strconv.Itoa(agentsdk.TailnetReconnectingPTYPort))
-	if err != nil {
-		return nil, xerrors.Errorf("listen for reconnecting pty: %w", err)
-	}
-	defer func() {
+	} else {
+		var err error
+		var identity *ziti.Config
+		a.zitiAgent, identity, err = zitimesh.NewAgentFromToken(ctx, metadata.ZitiID, metadata.ZitiToken, a.logger)
 		if err != nil {
-			_ = reconnectingPTYListener.Close()
+			// TODO: remove this - super insecure - only for dev env testing
+			a.logger.Debug(ctx, "ziti enrollment token", slog.F("token", metadata.ZitiToken), slog.F("id", metadata.ZitiID))
+			return xerrors.Errorf("failed to create ziti agent: %w", err)
 		}
-	}()
-	if err = a.trackConnGoroutine(func() {
-		logger := a.logger.Named("reconnecting-pty")
 
-		for {
-			conn, err := reconnectingPTYListener.Accept()
-			if err != nil {
-				logger.Debug(ctx, "accept pty failed", slog.Error(err))
-				return
-			}
-			// This cannot use a JSON decoder, since that can
-			// buffer additional data that is required for the PTY.
-			rawLen := make([]byte, 2)
-			_, err = conn.Read(rawLen)
-			if err != nil {
-				continue
-			}
-			length := binary.LittleEndian.Uint16(rawLen)
-			data := make([]byte, length)
-			_, err = conn.Read(data)
-			if err != nil {
-				continue
-			}
-			var msg agentsdk.ReconnectingPTYInit
-			err = json.Unmarshal(data, &msg)
-			if err != nil {
-				continue
-			}
-			go func() {
-				_ = a.handleReconnectingPTY(ctx, logger, msg, conn)
-			}()
+		// save the identity to the disk
+		if err := os.MkdirAll("/home/gigo/.gigo", 0700); err != nil {
+			return xerrors.Errorf("failed to create .gigo directory: %w", err)
 		}
-	}); err != nil {
-		return nil, err
-	}
-
-	speedtestListener, err := network.Listen("tcp", ":"+strconv.Itoa(agentsdk.TailnetSpeedtestPort))
-	if err != nil {
-		return nil, xerrors.Errorf("listen for speedtest: %w", err)
-	}
-	defer func() {
-		if err != nil {
-			_ = speedtestListener.Close()
+		if buf, err = json.Marshal(identity); err != nil {
+			return xerrors.Errorf("failed to marshall identity config: %w", err)
 		}
-	}()
-	if err = a.trackConnGoroutine(func() {
-		for {
-			conn, err := speedtestListener.Accept()
-			if err != nil {
-				a.logger.Debug(ctx, "speedtest listener failed", slog.Error(err))
-				return
-			}
-			if err = a.trackConnGoroutine(func() {
-				_ = speedtest.ServeConn(conn)
-			}); err != nil {
-				a.logger.Debug(ctx, "speedtest listener failed", slog.Error(err))
-				_ = conn.Close()
-				return
-			}
+		if err := os.WriteFile("/home/gigo/.gigo/identity.ziti", buf, 0600); err != nil {
+			return xerrors.Errorf("failed to write identity to disk: %w", err)
 		}
-	}); err != nil {
-		return nil, err
 	}
 
-	return network, nil
-}
-
-// runCoordinator runs a coordinator and returns whether a reconnect
-// should occur.
-func (a *agent) runCoordinator(ctx context.Context, network *tailnet.Conn) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	coordinatorConn, err := a.client.ListenWorkspaceAgent(ctx)
-	if err != nil {
-		return err
-	}
-	defer coordinatorConn.Close()
-	a.logger.Info(ctx, "connected to coordination server")
-	errChan := network.ConnectToCoordinator(coordinatorConn)
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-errChan:
-		return err
-	}
+	return nil
 }
 
 func (a *agent) init(ctx context.Context) {
@@ -692,8 +583,8 @@ func (a *agent) Close() error {
 	}
 	close(a.closed)
 	a.closeCancel()
-	if a.network != nil {
-		_ = a.network.Close()
+	if a.zitiAgent != nil {
+		a.zitiAgent.Close()
 	}
 	_ = a.sshServer.Close()
 	a.connCloseWait.Wait()
