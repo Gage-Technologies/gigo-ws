@@ -246,7 +246,7 @@ func (p *Provisioner) Apply(ctx context.Context, module *models.TerraformModule)
 		ctx, module.Environment, "",
 		"sh", "-c",
 		fmt.Sprintf(
-			"TF_LOG=DEBUG %s -chdir=%s apply -json -auto-approve -no-color -input=false",
+			"%s -chdir=%s apply -json -auto-approve -no-color -input=false",
 			p.terraformPath, module.LocalPath,
 		),
 	)
