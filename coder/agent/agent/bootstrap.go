@@ -81,6 +81,18 @@ type StateFromFile struct {
 	LastInitState int `json:"last_init_state"`
 }
 
+// formatConfigEnv
+//
+// Formats the gigo config environment for ExecCommand
+func formatConfigEnv(metadata agentsdk.WorkspaceAgentMetadata) []string {
+	// format environment into string format and forward our $PATH to the environment
+	env := []string{fmt.Sprintf("PATH=%s", os.Getenv("PATH"))}
+	for k, v := range metadata.GigoConfig.Environment {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
+	return env
+}
+
 // hasBeenInitialized
 //
 //	Determines whether we have previously initialized
@@ -249,7 +261,7 @@ func containerComposeUp(ctx context.Context, metadata agentsdk.WorkspaceAgentMet
 	// execute compose up command but use both the old
 	// and the new compose formats
 	res, err := utils.ExecuteCommand(
-		ctx, nil, "",
+		ctx, formatConfigEnv(metadata), "",
 		"bash", "-c", "cd /home/gigo/.gigo/containers/ && (sudo docker compose up -d || sudo docker-compose up -d)",
 	)
 	if err != nil {
@@ -269,12 +281,6 @@ func containerComposeUp(ctx context.Context, metadata agentsdk.WorkspaceAgentMet
 //	Iterates over the user executions performing
 //	the commands in the user defined environment
 func handleUserExecutions(ctx context.Context, metadata agentsdk.WorkspaceAgentMetadata, lastInitState models.WorkspaceInitState) (*utils.CommandResult, error) {
-	// format environment into string format and forward our $PATH to the environment
-	env := []string{fmt.Sprintf("PATH=%s", os.Getenv("PATH"))}
-	for k, v := range metadata.GigoConfig.Environment {
-		env = append(env, fmt.Sprintf("%s=%s", k, v))
-	}
-
 	// iterate over the user executions
 	for _, exec := range metadata.GigoConfig.Exec {
 		// skip init only execs if this is not
@@ -285,7 +291,7 @@ func handleUserExecutions(ctx context.Context, metadata agentsdk.WorkspaceAgentM
 
 		// execute command
 		res, err := utils.ExecuteCommand(
-			ctx, env, metadata.GigoConfig.WorkingDirectory,
+			ctx, formatConfigEnv(metadata), metadata.GigoConfig.WorkingDirectory,
 			"bash", "-c", exec.Command,
 		)
 		if err != nil {
