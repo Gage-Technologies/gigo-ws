@@ -3,10 +3,47 @@
 package agent
 
 import (
-	"github.com/cakturk/go-netstat/netstat"
+	"crypto/tls"
+	"fmt"
+	"net/http"
+	"time"
+
+	"git.mills.io/prologic/go-netstat"
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 	"golang.org/x/xerrors"
 )
+
+func isSSL(port uint16) bool {
+	conn, err := tls.Dial("tcp", fmt.Sprintf("localhost:%d", port), &tls.Config{
+		InsecureSkipVerify: true,
+	})
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+func isHTTP(port uint16, useTls bool) bool {
+	client := &http.Client{
+		Timeout: time.Second * 3,
+	}
+	protocol := "http"
+	if useTls {
+		protocol = "https"
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
+	}
+	resp, err := client.Get(fmt.Sprintf("%s://localhost:%d", protocol, port))
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return true
+}
 
 func getListeningPorts() (ActivePortState, error) {
 	tabs, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
@@ -33,6 +70,12 @@ func getListeningPorts() (ActivePortState, error) {
 			continue
 		}
 
+		// check if the port is ssl
+		isSsl := isSSL(tab.LocalAddr.Port)
+
+		// check if the port is http
+		isHttp := isHTTP(tab.LocalAddr.Port, isSsl)
+
 		procName := ""
 		if tab.Process != nil {
 			procName = tab.Process.Name
@@ -41,6 +84,8 @@ func getListeningPorts() (ActivePortState, error) {
 			ProcessName: procName,
 			Network:     agentsdk.ListeningPortNetworkTCP,
 			Port:        tab.LocalAddr.Port,
+			HTTP:        isHttp,
+			SSL:         isSsl,
 		}
 	}
 

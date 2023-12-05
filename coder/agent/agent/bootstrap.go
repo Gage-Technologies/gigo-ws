@@ -261,8 +261,8 @@ func containerComposeUp(ctx context.Context, metadata agentsdk.WorkspaceAgentMet
 	// execute compose up command but use both the old
 	// and the new compose formats
 	res, err := utils.ExecuteCommand(
-		ctx, formatConfigEnv(metadata), "",
-		"bash", "-c", "cd /home/gigo/.gigo/containers/ && (sudo docker compose up -d || sudo docker-compose up -d)",
+		ctx, formatConfigEnv(metadata), "/home/gigo/.gigo/containers",
+		"bash", "-c", "(sudo -E docker compose up -d || sudo -E docker-compose up -d)",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compose up containers: %v", err)

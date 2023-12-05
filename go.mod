@@ -4,11 +4,11 @@ go 1.20
 
 require (
 	cdr.dev/slog v1.4.2-0.20220525200111-18dce5c2cd5f
+	git.mills.io/prologic/go-netstat v0.0.0-20220805050011-f5d3cd86b10f
 	github.com/buger/jsonparser v1.1.1
 	github.com/bwmarrin/snowflake v0.3.0
-	github.com/cakturk/go-netstat v0.0.0-20200220111822-e5b49efee7a5
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20231130180838-f85a7c086c91
+	github.com/gage-technologies/gigo-lib v0.0.0-20231204210433-e8946350206f
 	github.com/gliderlabs/ssh v0.3.4
 	github.com/go-cmd/cmd v1.4.1
 	github.com/google/uuid v1.4.0
