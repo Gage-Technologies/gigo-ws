@@ -92,13 +92,14 @@ func (a *agent) portTrackerRoutine(ctx context.Context) {
 		// wait for one second or the context is cancelled
 		select {
 		case <-ctx.Done():
+			a.logger.Debug(ctx, "shutting down port tracker routine")
 			// we are done if the context is cancelled
 			return
 		case <-ticker.C:
 		}
 
 		// retrieve the current active ports
-		activePorts, err := getListeningPorts()
+		activePorts, err := getListeningPorts(ctx, a.logger)
 		if err != nil {
 			a.logger.Error(ctx, "error retrieving active ports", slog.Error(err))
 			continue
