@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gigo-ws/ws_pool"
 	"net"
 	"net/url"
 	"sync"
@@ -34,6 +35,7 @@ type ProvisionerApiServerOptions struct {
 	ClusterNode     cluster.Node
 	Provisioner     *provisioner.Provisioner
 	Volpool         *volpool.VolumePool
+	WsPool          *ws_pool.WorkspacePool
 	StorageEngine   storage.Storage
 	KubeClient      *kubernetes.Clientset
 	MetricsClient   *versioned.Clientset
@@ -193,6 +195,7 @@ func (s *ProvisionerApiServer) CreateWorkspace(ctx context.Context, request *ws.
 		RegistryCaches:  s.RegistryCaches,
 		WsHostOverrides: s.WsHostOverrides,
 		Volpool:         s.Volpool,
+		WsPool:          s.WsPool,
 	}
 
 	// perform workspace creation

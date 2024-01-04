@@ -2,6 +2,7 @@ package api
 
 import (
 	"gigo-ws/config"
+	"gigo-ws/utils"
 	"testing"
 )
 
@@ -57,7 +58,7 @@ func TestHandleRegistryCache(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			output := handleRegistryCaches(test.containerName, test.config)
+			output := utils.HandleRegistryCaches(test.containerName, test.config)
 			if output != test.output {
 				t.Errorf("expected %s, got %s", test.output, output)
 			}

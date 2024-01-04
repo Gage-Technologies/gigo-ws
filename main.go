@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"gigo-ws/ws_pool"
 	"log"
 	"math"
 	"os"
@@ -186,6 +187,17 @@ func main() {
 		Config:        cfg.VolumePoolConfig,
 	})
 
+	wsPool := ws_pool.NewWorkspacePool(ws_pool.WorkspacePoolParams{
+		DB:              tiDB,
+		Provisioner:     prov,
+		StorageEngine:   storageEngine,
+		SfNode:          snowflakeNode,
+		Logger:          logger,
+		Config:          cfg.WorkspacePoolConfig,
+		WsHostOverrides: cfg.WsHostOverrides,
+		RegistryCaches:  cfg.RegistryCaches,
+	})
+
 	// create context for cluster
 	clusterCtx, clusterCancel := context.WithCancel(context.Background())
 
@@ -233,6 +245,7 @@ func main() {
 			func(ctx context.Context) error {
 				go func() {
 					vpool.ResolveStateDeltas()
+					wsPool.ResolveStateDeltas()
 				}()
 				return nil
 			},
@@ -256,6 +269,7 @@ func main() {
 		ClusterNode:     clusterNode,
 		Provisioner:     prov,
 		Volpool:         vpool,
+		WsPool:          wsPool,
 		KubeClient:      kubeClient,
 		MetricsClient:   metricsClient,
 		StorageEngine:   storageEngine,

@@ -20,16 +20,17 @@ type RegistryCacheConfig struct {
 }
 
 type Config struct {
-	TitaniumConfig   config.TitaniumConfig `yaml:"ti_config"`
-	Cluster          bool                  `yaml:"cluster"`
-	Provisioner      ProvisionerConfig     `yaml:"provisioner"`
-	ModuleStorage    config.StorageConfig  `yaml:"module_storage"`
-	Server           ServerConfig          `yaml:"server"`
-	EtcdConfig       config.EtcdConfig     `yaml:"etcd_config"`
-	RegistryCaches   []RegistryCacheConfig `yaml:"registry_caches"`
-	Logger           LoggerConfig          `yaml:"logger"`
-	WsHostOverrides  map[string]string     `yaml:"ws_host_overrides"`
-	VolumePoolConfig VolumePoolConfig      `yaml:"volume_pool"`
+	TitaniumConfig      config.TitaniumConfig `yaml:"ti_config"`
+	Cluster             bool                  `yaml:"cluster"`
+	Provisioner         ProvisionerConfig     `yaml:"provisioner"`
+	ModuleStorage       config.StorageConfig  `yaml:"module_storage"`
+	Server              ServerConfig          `yaml:"server"`
+	EtcdConfig          config.EtcdConfig     `yaml:"etcd_config"`
+	RegistryCaches      []RegistryCacheConfig `yaml:"registry_caches"`
+	Logger              LoggerConfig          `yaml:"logger"`
+	WsHostOverrides     map[string]string     `yaml:"ws_host_overrides"`
+	VolumePoolConfig    VolumePoolConfig      `yaml:"volume_pool"`
+	WorkspacePoolConfig WsPoolConfig          `yaml:"workspace_pool"`
 }
 
 func LoadConfig(path string) (*Config, error) {

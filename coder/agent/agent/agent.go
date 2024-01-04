@@ -172,19 +172,28 @@ func (a *agent) run(ctx context.Context) error {
 		isVnc = true
 	}
 
-	metadata, err := a.client.InitializeWorkspaceAgent(ctx, isVnc)
-	if err != nil {
-		// mark init failure since this is part of the remote
-		// initialization state on workspace initialization
-		a.reportStateFailure(ctx, models.WorkspaceInitRemoteInitialization, err, nil)
-		return xerrors.Errorf("fetch metadata: %w", err)
+	var metadata agentsdk.WorkspaceAgentMetadata
+
+	for {
+		metadata, err = a.client.InitializeWorkspaceAgent(ctx, isVnc)
+		if err != nil {
+			// mark init failure since this is part of the remote
+			// initialization state on workspace initialization
+			a.reportStateFailure(ctx, models.WorkspaceInitRemoteInitialization, err, nil)
+			return xerrors.Errorf("fetch metadata: %w", err)
+		}
+
+		if metadata.WorkspaceState == models.WorkspaceFailed {
+			ctx.Done()
+			return nil
+		}
+
+		if metadata.Unassigned {
+			a.logger.Info(ctx, "fetched metadata")
+			break
+		}
 	}
 
-	if metadata.WorkspaceState == models.WorkspaceFailed {
-		ctx.Done()
-		return nil
-	}
-	a.logger.Info(ctx, "fetched metadata")
 	oldMetadata := a.metadata.Swap(metadata)
 
 	// The startup script should only execute on the first run!
