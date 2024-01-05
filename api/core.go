@@ -64,7 +64,7 @@ type startWorkspaceOptions struct {
 	Provisioner   *provisioner.Provisioner
 	StorageEngine storage.Storage
 	Logger        logging.Logger
-	WsPool        *ws_pool.WorkspacePool
+	WsPool        *wspool.WorkspacePool
 	WorkspaceID   int64
 }
 
@@ -72,7 +72,7 @@ type stopWorkspaceOptions struct {
 	Provisioner   *provisioner.Provisioner
 	StorageEngine storage.Storage
 	Logger        logging.Logger
-	WsPool        *ws_pool.WorkspacePool
+	WsPool        *wspool.WorkspacePool
 	WorkspaceID   int64
 }
 
@@ -81,7 +81,7 @@ type destroyWorkspaceOptions struct {
 	Volpool       *volpool.VolumePool
 	StorageEngine storage.Storage
 	Logger        logging.Logger
-	WsPool        *ws_pool.WorkspacePool
+	WsPool        *wspool.WorkspacePool
 	WorkspaceID   int64
 }
 
