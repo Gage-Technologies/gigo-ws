@@ -64,6 +64,7 @@ type startWorkspaceOptions struct {
 	Provisioner   *provisioner.Provisioner
 	StorageEngine storage.Storage
 	Logger        logging.Logger
+	WsPool        *ws_pool.WorkspacePool
 	WorkspaceID   int64
 }
 
@@ -71,6 +72,7 @@ type stopWorkspaceOptions struct {
 	Provisioner   *provisioner.Provisioner
 	StorageEngine storage.Storage
 	Logger        logging.Logger
+	WsPool        *ws_pool.WorkspacePool
 	WorkspaceID   int64
 }
 
@@ -79,6 +81,7 @@ type destroyWorkspaceOptions struct {
 	Volpool       *volpool.VolumePool
 	StorageEngine storage.Storage
 	Logger        logging.Logger
+	WsPool        *ws_pool.WorkspacePool
 	WorkspaceID   int64
 }
 
@@ -230,8 +233,19 @@ func createWorkspace(ctx context.Context, opts createWorkspaceOptions) (*models.
 }
 
 func startWorkspace(ctx context.Context, opts startWorkspaceOptions) (*models.Agent, *provisioner.ApplyLogs, error) {
+	wsID := opts.WorkspaceID
+
+	poolID, err := opts.WsPool.GetPoolAliasID(wsID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get pool alias id: %v", err)
+	}
+
+	if poolID != 0 {
+		wsID = poolID
+	}
+
 	// retrieve the current state from statefile
-	state, err := provisioner.ParseStatefileForWorkspaceState(opts.Provisioner.Backend, opts.WorkspaceID)
+	state, err := provisioner.ParseStatefileForWorkspaceState(opts.Provisioner.Backend, wsID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse workspace state from statefile: %v", err)
 	}
@@ -240,7 +254,7 @@ func startWorkspace(ctx context.Context, opts startWorkspaceOptions) (*models.Ag
 	// we cannot recover from removing the pvc
 	if state == models.WorkspaceStateDestroyed {
 		// ensure that the state file is removed incase it exists
-		_ = opts.Provisioner.Backend.RemoveStatefile(fmt.Sprintf("states/%d", opts.WorkspaceID))
+		_ = opts.Provisioner.Backend.RemoveStatefile(fmt.Sprintf("states/%d", wsID))
 		return nil, nil, ErrWorkspaceNotFound
 	}
 
@@ -253,7 +267,7 @@ func startWorkspace(ctx context.Context, opts startWorkspaceOptions) (*models.Ag
 	// only perform the operation if we are stopped
 	if state == models.WorkspaceStateStopped {
 		// load module using the workspace id
-		module, err := models.LoadModule(opts.StorageEngine, opts.WorkspaceID)
+		module, err := models.LoadModule(opts.StorageEngine, wsID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to load module: %v", err)
 		}
@@ -286,7 +300,7 @@ func startWorkspace(ctx context.Context, opts startWorkspaceOptions) (*models.Ag
 	}
 
 	// retrieve agent from statefile
-	agent, err := provisioner.ParseStatefileForAgent(opts.Provisioner.Backend, opts.WorkspaceID)
+	agent, err := provisioner.ParseStatefileForAgent(opts.Provisioner.Backend, wsID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse agent from statefile: %v", err)
 	}
@@ -296,8 +310,19 @@ func startWorkspace(ctx context.Context, opts startWorkspaceOptions) (*models.Ag
 }
 
 func stopWorkspace(ctx context.Context, opts stopWorkspaceOptions) (*models.Agent, *provisioner.ApplyLogs, error) {
+	wsID := opts.WorkspaceID
+
+	poolID, err := opts.WsPool.GetPoolAliasID(wsID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get pool alias id: %v", err)
+	}
+
+	if poolID != 0 {
+		wsID = poolID
+	}
+
 	// retrieve the current state from statefile
-	state, err := provisioner.ParseStatefileForWorkspaceState(opts.Provisioner.Backend, opts.WorkspaceID)
+	state, err := provisioner.ParseStatefileForWorkspaceState(opts.Provisioner.Backend, wsID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse workspace state from statefile: %v", err)
 	}
@@ -306,7 +331,7 @@ func stopWorkspace(ctx context.Context, opts stopWorkspaceOptions) (*models.Agen
 	// we cannot recover from removing the pvc
 	if state == models.WorkspaceStateDestroyed {
 		// ensure that the state file is removed incase it exists
-		_ = opts.Provisioner.Backend.RemoveStatefile(fmt.Sprintf("states/%d", opts.WorkspaceID))
+		_ = opts.Provisioner.Backend.RemoveStatefile(fmt.Sprintf("states/%d", wsID))
 		return nil, nil, ErrWorkspaceNotFound
 	}
 
@@ -319,7 +344,7 @@ func stopWorkspace(ctx context.Context, opts stopWorkspaceOptions) (*models.Agen
 	// only perform the operation if we are active
 	if state == models.WorkspaceStateActive {
 		// load module using the workspace id
-		module, err := models.LoadModule(opts.StorageEngine, opts.WorkspaceID)
+		module, err := models.LoadModule(opts.StorageEngine, wsID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to load module: %v", err)
 		}
@@ -352,7 +377,7 @@ func stopWorkspace(ctx context.Context, opts stopWorkspaceOptions) (*models.Agen
 	}
 
 	// retrieve agent from statefile
-	agent, err := provisioner.ParseStatefileForAgent(opts.Provisioner.Backend, opts.WorkspaceID)
+	agent, err := provisioner.ParseStatefileForAgent(opts.Provisioner.Backend, wsID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse agent from statefile: %v", err)
 	}
@@ -362,6 +387,16 @@ func stopWorkspace(ctx context.Context, opts stopWorkspaceOptions) (*models.Agen
 }
 
 func destroyWorkspace(ctx context.Context, opts destroyWorkspaceOptions) (*provisioner.DestroyLogs, error) {
+
+	isPool, err := opts.WsPool.DestroyWorkspacePoolByTableID(opts.WorkspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to destroy workspace pool: %v", err)
+	}
+
+	if isPool {
+		return nil, nil
+	}
+
 	// retrieve the current state from statefile
 	state, err := provisioner.ParseStatefileForWorkspaceState(opts.Provisioner.Backend, opts.WorkspaceID)
 	if err != nil {

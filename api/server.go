@@ -279,6 +279,7 @@ func (s *ProvisionerApiServer) StartWorkspace(ctx context.Context, request *ws.S
 		StorageEngine: s.StorageEngine,
 		Logger:        s.Logger,
 		WorkspaceID:   request.GetWorkspaceId(),
+		WsPool:        s.WsPool,
 	})
 	if err != nil {
 		s.Logger.Warn(fmt.Errorf("StartWorkspace (%d): failed to start workspace: %v", ctx.Value("id"), err))
@@ -353,6 +354,7 @@ func (s *ProvisionerApiServer) StopWorkspace(ctx context.Context, request *ws.St
 		StorageEngine: s.StorageEngine,
 		Logger:        s.Logger,
 		WorkspaceID:   request.GetWorkspaceId(),
+		WsPool:        s.WsPool,
 	})
 	if err != nil {
 		s.Logger.Warn(fmt.Errorf("StopWorkspace (%d): failed to stop workspace: %v", ctx.Value("id"), err))
@@ -425,6 +427,7 @@ func (s *ProvisionerApiServer) DestroyWorkspace(ctx context.Context, request *ws
 		Logger:        s.Logger,
 		WorkspaceID:   request.GetWorkspaceId(),
 		Volpool:       s.Volpool,
+		WsPool:        s.WsPool,
 	})
 	if err != nil {
 		// we treat a not-found as an idempotent destroy since we want it gone anyway

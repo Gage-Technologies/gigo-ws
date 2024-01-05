@@ -2,6 +2,7 @@ package wspool
 
 import (
 	"context"
+	"database/sql"
 	"embed"
 	"fmt"
 	"gigo-ws/utils"
@@ -143,11 +144,14 @@ func (p *WorkspacePool) ReleaseWorkspace(workspacePoolId int64) error {
 //
 //	Destroys all Workspaces associated with the passed workspace id.
 //	 This should be called when a workspace is destroyed.
-func (p *WorkspacePool) DestroyWorkspacePools(workspaceId int64) error {
+func (p *WorkspacePool) DestroyWorkspacePoolByTableID(workspaceId int64) (bool, error) {
 	// query for the Workspaces associated with the workspace
 	res, err := p.DB.DB.Query("select * from workspace_pool where workspace_table_id = ?", workspaceId)
 	if err != nil {
-		return fmt.Errorf("error querying for workspace Workspaces: %v", err)
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return true, fmt.Errorf("error querying for workspace Workspaces: %v", err)
 	}
 	defer res.Close()
 
@@ -159,7 +163,7 @@ func (p *WorkspacePool) DestroyWorkspacePools(workspaceId int64) error {
 		// load the Workspace
 		vol, err := models.WorkspacePoolFromSqlNative(res)
 		if err != nil {
-			return fmt.Errorf("error loading Workspace: %v", err)
+			return true, fmt.Errorf("error loading Workspace: %v", err)
 		}
 
 		// append the Workspace to the slice
@@ -172,11 +176,24 @@ func (p *WorkspacePool) DestroyWorkspacePools(workspaceId int64) error {
 	for _, vol := range vols {
 		err := p.destroyWorkspace(vol.ID)
 		if err != nil {
-			return fmt.Errorf("error destroying Workspace: %v", err)
+			return true, fmt.Errorf("error destroying Workspace: %v", err)
 		}
 	}
 
-	return nil
+	return true, nil
+}
+
+func (p *WorkspacePool) GetPoolAliasID(workspaceTableId int64) (int64, error) {
+	// check if the workspace table id exists in the database
+	var id int64
+	err := p.DB.DB.QueryRow("select _id from workspace_pool where workspace_table_id = ?", workspaceTableId).Scan(&id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("error querying for workspace Workspaces: %v", err)
+	}
+	return id, nil
 }
 
 // ResolveStateDeltas
