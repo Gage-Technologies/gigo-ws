@@ -188,7 +188,7 @@ func (a *agent) run(ctx context.Context) error {
 			return nil
 		}
 
-		if metadata.Unassigned {
+		if !metadata.Unassigned {
 			a.logger.Info(ctx, "fetched metadata")
 			break
 		}
