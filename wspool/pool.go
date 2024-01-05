@@ -1,10 +1,9 @@
-package ws_pool
+package wspool
 
 import (
 	"context"
 	"embed"
 	"fmt"
-	"gigo-ws/api"
 	"gigo-ws/utils"
 	"os"
 	"strings"
@@ -85,7 +84,7 @@ func (p *WorkspacePool) GetWorkspace(container string, memory int64, cpu int64, 
 	// query for the first available Workspace of the requested size
 	res, err := tx.Query(
 		"select * from workspace_pool where container = ? and state = ? and memory = ? and cpu = ? and volume_size = ? limit 1 for update",
-		container, memory, cpu, volumeSize, models.WorkspacePoolStateAvailable,
+		container, models.WorkspacePoolStateAvailable, memory, cpu, volumeSize,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error querying for available Workspaces: %v", err)
@@ -235,7 +234,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 			// create the Workspaces
 			for i := 0; i < neededCount; i++ {
 				id := p.SfNode.Generate().Int64()
-				vol := models.CreateWorkspacePool(
+				pooledWs := models.CreateWorkspacePool(
 					id,
 					subpool.Container,
 					models.WorkspacePoolStateAvailable,
@@ -247,15 +246,15 @@ func (p *WorkspacePool) resolveStateDeltas() {
 					nil,
 				)
 
-				p.Logger.Debugf("provisioning volpool Workspace: %d", vol.ID)
-				agent, _, err := p.provisionWorkspace(context.TODO(), vol)
+				p.Logger.Debugf("provisioning wspool Workspace: %d", pooledWs.ID)
+				agent, _, err := p.provisionWorkspace(context.TODO(), pooledWs)
 				if err != nil {
-					p.Logger.Errorf("error provisioning Workspace pool %d: %v", vol.ID, err)
+					p.Logger.Errorf("error provisioning Workspace pool %d: %v", pooledWs.ID, err)
 				}
 
-				vol.Secret = agent.Token
-				vol.AgentID = agent.ID
-				statements, err := vol.ToSqlNative()
+				pooledWs.Secret = agent.Token
+				pooledWs.AgentID = agent.ID
+				statements, err := pooledWs.ToSqlNative()
 				if err != nil {
 					p.Logger.Errorf("error converting Workspace pool to SQL: %v", err)
 					continue
@@ -268,9 +267,6 @@ func (p *WorkspacePool) resolveStateDeltas() {
 						continue
 					}
 				}
-
-				//provisionSet = append(provisionSet, vol)
-
 			}
 		}
 
@@ -304,15 +300,6 @@ func (p *WorkspacePool) resolveStateDeltas() {
 		}
 	}
 
-	// provision the Workspaces that need to be provisioned
-	//for _, vol := range provisionSet {
-	//	p.Logger.Debugf("provisioning volpool Workspace: %d", vol.ID)
-	//	agent, logs, err := p.provisionWorkspace(context.TODO(), vol)
-	//	if err != nil {
-	//		p.Logger.Errorf("error provisioning Workspace %d: %v", vol.ID, err)
-	//	}
-	//}
-
 	// destroy the Workspaces that need to be destroyed
 	for _, id := range destroySet {
 		p.Logger.Debugf("destroying pool Workspace: %d", id)
@@ -322,95 +309,6 @@ func (p *WorkspacePool) resolveStateDeltas() {
 		}
 	}
 }
-
-//func (p *WorkspacePool) provisionWorkspace(pool *models.WorkspacePool) error {
-//	// read template from storage
-//	templateBuf, err := embedFS.ReadFile("resources/storage.tf")
-//	if err != nil {
-//		return fmt.Errorf("failed to read tf template: %v", err)
-//	}
-//
-//	// replace the Workspace id in the template
-//	template := string(templateBuf)
-//	template = strings.ReplaceAll(template, "<POOL_ID>", fmt.Sprintf("%d", pool.ID))
-//
-//	// replace the Workspace size in the template
-//	template = strings.ReplaceAll(template, "<POOL_SIZE>", fmt.Sprintf("%dGi", pool))
-//
-//	// conditionally set the storage class
-//	sclass := ""
-//	if pool.StorageClass != "" {
-//		sclass = fmt.Sprintf("storage_class_name = \"%s\"", vol.StorageClass)
-//	}
-//	template = strings.ReplaceAll(template, "<STORAGE_CLASS>", sclass)
-//
-//	// initialize environment with our current environment
-//	// this is really important for k8s deployment because
-//	// the k8s api server config is in the container's environment
-//	// and we won't be able to provision unless we have access to
-//	// that configuration within the provisioner commands
-//	env := os.Environ()
-//
-//	// format module with terraform template
-//	module := &models2.TerraformModule{
-//		MainTF:      []byte(template),
-//		ModuleID:    vol.ID,
-//		Environment: env,
-//	}
-//
-//	// create boolean to track failure
-//	failed := true
-//
-//	// TODO: this seems a bit optimistic for cleanup - evaluate if this orphans resources
-//	// defer cleanup function to destroy resource on failure
-//	defer func() {
-//		if failed {
-//			_, err := p.Provisioner.Destroy(context.TODO(), module)
-//			if err != nil {
-//				p.Logger.Error(fmt.Errorf("failed to destroy Workspace on create cleanup: %v", err))
-//			}
-//		}
-//		return
-//	}()
-//
-//	// perform apply operation
-//	_, err = p.Provisioner.Apply(context.TODO(), module)
-//	if err != nil {
-//		return fmt.Errorf("failed to apply configuration: %v", err)
-//	}
-//
-//	// preserve module for later operations
-//	err = module.StoreModule(p.StorageEngine)
-//	if err != nil {
-//		return fmt.Errorf("failed to store module: %v", err)
-//	}
-//
-//	// insert the Workspace into the database
-//	stmts, err := vol.ToSqlNative()
-//	if err != nil {
-//		return fmt.Errorf("failed to generate sql statements: %v", err)
-//	}
-//	tx, err := p.DB.DB.Begin()
-//	if err != nil {
-//		return fmt.Errorf("failed to begin transaction: %v", err)
-//	}
-//	defer tx.Rollback()
-//	for _, stmt := range stmts {
-//		_, err := tx.Exec(stmt.Statement, stmt.Values...)
-//		if err != nil {
-//			return fmt.Errorf("failed to insert Workspace into database: %v", err)
-//		}
-//	}
-//	err = tx.Commit()
-//	if err != nil {
-//		return fmt.Errorf("failed to commit transaction: %v", err)
-//	}
-//
-//	// mark failure as false
-//	failed = false
-//
-//	return nil
-//}
 
 func (p *WorkspacePool) provisionWorkspace(ctx context.Context, pool *models.WorkspacePool) (*models2.Agent, *provisioner.ApplyLogs, error) {
 	// retrieve the current state from statefile
@@ -435,13 +333,21 @@ func (p *WorkspacePool) provisionWorkspace(ctx context.Context, pool *models.Wor
 	}
 
 	// conditionally inject host aliases into template
+	hostAliases := ""
 	if len(p.WsHostOverrides) > 0 {
-		hostAliases := ""
 		for host, ip := range p.WsHostOverrides {
 			hostAliases += fmt.Sprintf(hostAliasesTemplate, ip, host)
 		}
 		templateBuf = []byte(strings.ReplaceAll(string(templateBuf), "<HOST_ALIASES>", hostAliases))
 	}
+	templateBuf = []byte(strings.ReplaceAll(string(templateBuf), "<HOST_ALIASES>", hostAliases))
+
+	// conditionally set the storage class
+	sclass := ""
+	if pool.StorageClass != "" {
+		sclass = fmt.Sprintf("storage_class_name = \"%s\"", pool.StorageClass)
+	}
+	templateBuf = []byte(strings.ReplaceAll(string(templateBuf), "<STORAGE_CLASS>", sclass))
 
 	// update the container with registry caching if it is configured
 	pool.Container = utils.HandleRegistryCaches(pool.Container, p.RegistryCaches)
@@ -528,7 +434,7 @@ func (p *WorkspacePool) prepEnvironmentForCreation(pool *models.WorkspacePool) [
 	)
 
 	// add agent scripts to the environments
-	env = append(env, api.AgentScriptEnv()...)
+	env = append(env, utils.AgentScriptEnv()...)
 
 	return env
 }

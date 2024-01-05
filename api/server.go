@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gigo-ws/ws_pool"
+	"gigo-ws/wspool"
 	"net"
 	"net/url"
 	"sync"
@@ -35,7 +35,7 @@ type ProvisionerApiServerOptions struct {
 	ClusterNode     cluster.Node
 	Provisioner     *provisioner.Provisioner
 	Volpool         *volpool.VolumePool
-	WsPool          *ws_pool.WorkspacePool
+	WsPool          *wspool.WorkspacePool
 	StorageEngine   storage.Storage
 	KubeClient      *kubernetes.Clientset
 	MetricsClient   *versioned.Clientset

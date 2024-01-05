@@ -1,4 +1,4 @@
-package api
+package utils
 
 // Copied from Coder @ https://github.com/coder/coder
 // Modified by Gage Technologies @ https://github.com/gage-technologies

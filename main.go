@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"gigo-ws/ws_pool"
+	"gigo-ws/wspool"
 	"log"
 	"math"
 	"os"
@@ -187,7 +187,7 @@ func main() {
 		Config:        cfg.VolumePoolConfig,
 	})
 
-	wsPool := ws_pool.NewWorkspacePool(ws_pool.WorkspacePoolParams{
+	wsPool := wspool.NewWorkspacePool(wspool.WorkspacePoolParams{
 		DB:              tiDB,
 		Provisioner:     prov,
 		StorageEngine:   storageEngine,
@@ -225,35 +225,35 @@ func main() {
 		)
 	} else {
 		clusterNode, err = cluster.NewClusterNode(cluster.ClusterNodeOptions{
-			clusterCtx,
-			nodeId.Int64(),
+			Ctx: clusterCtx,
+			ID:  nodeId.Int64(),
 			// we assume that the node ip will always be set at this
 			// env var - this is really designed to be operated on k8s
 			// but could theoretically be set manually if deployed by hand
-			os.Getenv("GIGO_POD_IP"),
+			Address: os.Getenv("GIGO_POD_IP"),
 			// we have a 10 second timeout on the node such that if the node
 			// dies or hangs for more than 10 seconds we will consider the node
 			// dead and will elect a new leader forcing the node to exit the
 			// cluster and rejoin with a new role
-			time.Second * 10,
-			"gigo-ws",
-			etcd.Config{
+			Ttl:         time.Second * 10,
+			ClusterName: "gigo-ws",
+			EtcdConfig: etcd.Config{
 				Endpoints: cfg.EtcdConfig.Hosts,
 				Username:  cfg.EtcdConfig.Username,
 				Password:  cfg.EtcdConfig.Password,
 			},
-			func(ctx context.Context) error {
+			LeaderRoutine: func(ctx context.Context) error {
 				go func() {
 					vpool.ResolveStateDeltas()
 					wsPool.ResolveStateDeltas()
 				}()
 				return nil
 			},
-			func(ctx context.Context) error {
+			FollowerRoutine: func(ctx context.Context) error {
 				return nil
 			},
-			time.Second * 5,
-			clusterLogger,
+			RoutineTick: time.Second * 5,
+			Logger:      clusterLogger,
 		})
 		if err != nil {
 			log.Fatalf("failed to create cluster node: %v", err)

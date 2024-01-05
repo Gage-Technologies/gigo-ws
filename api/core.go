@@ -5,7 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"gigo-ws/utils"
-	"gigo-ws/ws_pool"
+	"gigo-ws/wspool"
 	ti "github.com/gage-technologies/gigo-lib/db"
 	"os"
 	"strings"
@@ -51,7 +51,7 @@ type templateOptions struct {
 type createWorkspaceOptions struct {
 	Provisioner     *provisioner.Provisioner
 	Volpool         *volpool.VolumePool
-	WsPool          *ws_pool.WorkspacePool
+	WsPool          *wspool.WorkspacePool
 	StorageEngine   storage.Storage
 	TemplateOpts    templateOptions
 	RegistryCaches  []config.RegistryCacheConfig
@@ -505,7 +505,7 @@ func prepEnvironmentForCreation(opts templateOptions) []string {
 	)
 
 	// add agent scripts to the environments
-	env = append(env, AgentScriptEnv()...)
+	env = append(env, utils.AgentScriptEnv()...)
 
 	return env
 }
