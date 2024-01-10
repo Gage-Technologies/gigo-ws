@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"gigo-ws/utils"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"gigo-ws/config"
@@ -203,6 +204,12 @@ func (p *WorkspacePool) GetPoolAliasID(workspaceTableId int64) (int64, error) {
 //	simultaneously.
 func (p *WorkspacePool) ResolveStateDeltas() {
 	p.sflight.Do("resolveStateDeltas", func() (interface{}, error) {
+		defer func() {
+			if err := recover(); err != nil {
+				p.Logger.Errorf("panic resolving state deltas: %v\nstack:\n%s", err, string(debug.Stack()))
+			}
+		}()
+
 		p.resolveStateDeltas()
 		return nil, nil
 	})
@@ -220,15 +227,9 @@ func (p *WorkspacePool) resolveStateDeltas() {
 	//provisionSet := make([]*models.WorkspacePool, 0)
 	destroySet := make([]int64, 0)
 
-	tx, err := p.DB.DB.BeginTx(context.Background(), nil)
-	if err != nil {
-		p.Logger.Error("error beginning transaction: %v", err)
-		return
-	}
-
 	// iterate over the subpools
 	for _, subpool := range p.Config.SubPools {
-		p.Logger.Debugf("resolving state deltas for subpool: %d", subpool.Container)
+		p.Logger.Debugf("resolving state deltas for subpool: %s", subpool.Container)
 
 		// get the count of available Workspaces in the subpool
 		var availableCount int
@@ -267,6 +268,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 				agent, _, err := p.provisionWorkspace(context.TODO(), pooledWs)
 				if err != nil {
 					p.Logger.Errorf("error provisioning Workspace pool %d: %v", pooledWs.ID, err)
+					return
 				}
 
 				pooledWs.Secret = agent.Token
@@ -277,12 +279,30 @@ func (p *WorkspacePool) resolveStateDeltas() {
 					continue
 				}
 
+				tx, err := p.DB.DB.BeginTx(context.Background(), nil)
+				if err != nil {
+					p.Logger.Error("error beginning transaction: %v", err)
+					return
+				}
+
+				c := false
 				for _, statement := range statements {
 					_, err = tx.Exec(statement.Statement, statement.Values...)
 					if err != nil {
+						_ = tx.Rollback()
 						p.Logger.Errorf("error inserting Workspace pool: %v", err)
-						continue
+						c = true
+						break
 					}
+				}
+				if c {
+					continue
+				}
+
+				err = tx.Commit()
+				if err != nil {
+					p.Logger.Error("error committing transaction: %v", err)
+					return
 				}
 			}
 		}
@@ -367,14 +387,14 @@ func (p *WorkspacePool) provisionWorkspace(ctx context.Context, pool *models.Wor
 	templateBuf = []byte(strings.ReplaceAll(string(templateBuf), "<STORAGE_CLASS>", sclass))
 
 	// update the container with registry caching if it is configured
-	pool.Container = utils.HandleRegistryCaches(pool.Container, p.RegistryCaches)
+	container := utils.HandleRegistryCaches(pool.Container, p.RegistryCaches)
 
 	// format module with terraform template
 	module := &models2.TerraformModule{
 		MainTF: templateBuf,
 		////////////////////////////////////// TODO ASK Sam
 		ModuleID:    pool.ID,
-		Environment: p.prepEnvironmentForCreation(pool),
+		Environment: p.prepEnvironmentForCreation(pool, container),
 	}
 
 	// create boolean to track failure
@@ -426,7 +446,7 @@ func (p *WorkspacePool) provisionWorkspace(ctx context.Context, pool *models.Wor
 	return agent, logs, nil
 }
 
-func (p *WorkspacePool) prepEnvironmentForCreation(pool *models.WorkspacePool) []string {
+func (p *WorkspacePool) prepEnvironmentForCreation(pool *models.WorkspacePool, formattedContainer string) []string {
 	// initialize environment with our current environment
 	// this is really important for k8s deployment because
 	// the k8s api server config is in the container's environment
@@ -443,10 +463,10 @@ func (p *WorkspacePool) prepEnvironmentForCreation(pool *models.WorkspacePool) [
 		fmt.Sprintf("GIGO_WORKSPACE_DISK=%dGi", pool.VolumeSize),
 		fmt.Sprintf("GIGO_WORKSPACE_CPU=%d", pool.CPU),
 		fmt.Sprintf("GIGO_WORKSPACE_MEM=%dG", pool.Memory),
-		fmt.Sprintf("GIGO_WORKSPACE_CONTAINER=%s", pool.Container),
+		fmt.Sprintf("GIGO_WORKSPACE_CONTAINER=%s", formattedContainer),
 		fmt.Sprintf("GIGO_AGENT_URL=%s", p.Config.AccessUrl),
 		///////////////////////////////////////////////////////////////////////////// TODO ASK Sam
-		fmt.Sprintf("GIGO_WORKSPACE_ID=%d", pool.WorkspaceTableID),
+		fmt.Sprintf("GIGO_WORKSPACE_ID=%d", pool.ID),
 		"GIGO_WORKSPACE_TRANSITION=start",
 	)
 

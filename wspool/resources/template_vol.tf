@@ -30,7 +30,7 @@ resource "gigo_agent" "main" {
 
 resource "kubernetes_persistent_volume_claim" "home" {
   metadata {
-    name      = "gigo-ws-${data.gigo_workspace.me.owner_id}-${data.gigo_workspace.me.id}-home"
+    name      = "gigo-ws-pool-${data.gigo_workspace.me.id}-home"
     namespace = "gigo-ws-prov-plane"
   }
   wait_until_bound = false
