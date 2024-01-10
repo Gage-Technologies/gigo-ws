@@ -320,7 +320,7 @@ func (a *agent) run(ctx context.Context) error {
 	}
 
 	a.logger.Debug(ctx, "launching init connection server")
-	a.initConnectionServer(ctx)
+	a.agentControlServer(ctx)
 
 	a.logger.Debug(ctx, "reserving unused gigo ports")
 	a.reserveUnusedGigoPorts(ctx)

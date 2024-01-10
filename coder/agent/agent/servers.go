@@ -11,28 +11,23 @@ import (
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 )
 
-// initConnectionServer
+// agentControlServer
 //
-// Launches a server with a /ping endpoint used to establish
-// ziti tunneling from the server before the rest of the agent
-// is online.
-// This makes the user experience better because by the time
-// the agent is fully online the tunneling has occurred.
-func (a *agent) initConnectionServer(ctx context.Context) {
-	// Define the handler for the /ping endpoint
-	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
-		a.logger.Info(ctx, "received init connection ping")
-		fmt.Fprintln(w, "pong")
+// Launches a server with agent controls that can be accessed via a ws
+// to enable code execution and linting for Bytes.
+func (a *agent) agentControlServer(ctx context.Context) {
+	apiServer, err := server2.NewHttpApi(server2.HttpApiParams{
+		NodeID:    a.id,
+		Snowflake: a.snowflakeNode,
+		Port:      agentsdk.ZitiInitConnPort,
+		Host:      "localhost",
+		Logger:    a.logger,
+		Secret:    a.client.SessionAuth().Token,
 	})
-
-	apiServer, err := server2.NewHttpApi(server2.HttpApiParams{NodeID: a.id, Snowflake: a.snowflakeNode, Port: agentsdk.ZitiInitConnPort, Host: "localhost", Logger: a.logger, Secret: a.client.SessionAuth().Token})
 	if err != nil {
 		a.logger.Error(ctx, "failed to create api server", slog.Error(err))
 		return
 	}
-
-	//// Define the server and its properties
-	//server := &http.Server{Addr: fmt.Sprintf("localhost:%d", agentsdk.ZitiInitConnPort)} // You can choose an appropriate port
 
 	// Start the server in a goroutine so it doesn't block
 	go func() {
