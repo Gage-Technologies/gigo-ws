@@ -10,6 +10,9 @@ require (
 	github.com/coder/retry v1.3.0
 	github.com/gage-technologies/gigo-lib v0.0.0-20240104220340-38b9f9ebd318
 	github.com/gliderlabs/ssh v0.3.4
+	github.com/go-chi/chi v1.5.5
+	github.com/go-chi/cors v1.2.1
+	github.com/go-chi/hostrouter v0.2.0
 	github.com/go-cmd/cmd v1.4.1
 	github.com/google/uuid v1.4.0
 	github.com/hashicorp/go-reap v0.0.0-20230117204525-bf69c61a7b71
@@ -33,6 +36,7 @@ require (
 	k8s.io/apimachinery v0.28.3
 	k8s.io/client-go v0.28.3
 	k8s.io/metrics v0.28.3
+	moul.io/chizap v1.0.3
 	storj.io/drpc v0.0.33-0.20220622181519-9206537a4db7
 )
 
@@ -47,6 +51,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fullsailor/pkcs7 v0.0.0-20190404230743-d7302db945fa // indirect
 	github.com/getsentry/sentry-go v0.13.0 // indirect
+	github.com/go-chi/chi/v5 v5.0.11 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.21.4 // indirect
@@ -142,7 +147,7 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
-	github.com/go-playground/validator/v10 v10.11.0 // indirect
+	github.com/go-playground/validator/v10 v10.11.0
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -188,7 +193,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
-	go.uber.org/zap v1.23.0 // indirect
+	go.uber.org/zap v1.23.0
 	go4.org/mem v0.0.0-20210711025021-927187094b94 // indirect
 	golang.org/x/net v0.18.0 // indirect
 	golang.org/x/sync v0.1.0
@@ -200,7 +205,7 @@ require (
 	google.golang.org/grpc v1.52.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	nhooyr.io/websocket v1.8.10 // indirect
+	nhooyr.io/websocket v1.8.10
 )
 
 // There are a few minor changes we make to Tailscale that we're slowly upstreaming. Compare here:

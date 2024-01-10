@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	server2 "gigo-ws/coder/agent/agent/server"
 	"net"
 	"net/http"
 
@@ -24,12 +25,18 @@ func (a *agent) initConnectionServer(ctx context.Context) {
 		fmt.Fprintln(w, "pong")
 	})
 
-	// Define the server and its properties
-	server := &http.Server{Addr: fmt.Sprintf("localhost:%d", agentsdk.ZitiInitConnPort)} // You can choose an appropriate port
+	apiServer, err := server2.NewHttpApi(server2.HttpApiParams{NodeID: a.id, Snowflake: a.snowflakeNode, Port: agentsdk.ZitiInitConnPort, Host: "localhost", Logger: a.logger, Secret: a.client.SessionAuth().Token})
+	if err != nil {
+		a.logger.Error(ctx, "failed to create api server", slog.Error(err))
+		return
+	}
+
+	//// Define the server and its properties
+	//server := &http.Server{Addr: fmt.Sprintf("localhost:%d", agentsdk.ZitiInitConnPort)} // You can choose an appropriate port
 
 	// Start the server in a goroutine so it doesn't block
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := apiServer.Start(ctx); err != nil && err != http.ErrServerClosed {
 			a.logger.Error(ctx, "init connection server failed", slog.Error(err))
 		}
 	}()
@@ -37,7 +44,7 @@ func (a *agent) initConnectionServer(ctx context.Context) {
 	// Listen for context cancellation and shutdown the server when it's cancelled
 	go func() {
 		<-ctx.Done()
-		if err := server.Shutdown(context.Background()); err != nil {
+		if err := apiServer.Shutdown(context.Background()); err != nil {
 			a.logger.Error(ctx, "init connection server shutdown error", slog.Error(err))
 		}
 	}()
