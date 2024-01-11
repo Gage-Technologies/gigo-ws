@@ -221,7 +221,7 @@ func (s *ProvisionerApiServer) CreateWorkspace(ctx context.Context, request *ws.
 		}, nil
 	}
 
-	s.Logger.Debug(fmt.Errorf("CreateWorkspace (%d): completed workspace creation: %d", ctx.Value("id"), request.GetWorkspaceId()))
+	s.Logger.Debug(fmt.Errorf("CreateWorkspace (%d): completed workspace creation: %d - %d - %s", ctx.Value("id"), request.GetWorkspaceId(), agent.ID, agent.Token))
 
 	// format agent and return
 	return &ws.CreateWorkspaceResponse{
@@ -523,12 +523,12 @@ func validateCreateWorkspaceRequest(request *ws.CreateWorkspaceRequest) error {
 		return fmt.Errorf("invalid disk - must be 5 <= x <= 250")
 	}
 
-	if request.GetCpu() < 2 || request.GetCpu() > 32 {
-		return fmt.Errorf("invalid cpu - must be 2 <= x <= 32")
+	if request.GetCpu() < 1 || request.GetCpu() > 32 {
+		return fmt.Errorf("invalid cpu - must be 1 <= x <= 32")
 	}
 
-	if request.GetMemory() < 2 || request.GetMemory() > 32 {
-		return fmt.Errorf("invalid memory - must be 2 <= x <= 32")
+	if request.GetMemory() < 1 || request.GetMemory() > 32 {
+		return fmt.Errorf("invalid memory - must be 1 <= x <= 32")
 	}
 
 	if request.GetContainer() == "" {

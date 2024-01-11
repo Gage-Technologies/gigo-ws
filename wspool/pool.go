@@ -85,7 +85,7 @@ func (p *WorkspacePool) GetWorkspace(container string, memory int64, cpu int64, 
 
 	// query for the first available Workspace of the requested size
 	res, err := tx.Query(
-		"select * from workspace_pool where container = ? and state = ? and memory = ? and cpu = ? and volume_size = ? limit 1 for update",
+		"select _id, container, state, memory, cpu, volume_size, bin_to_uuid(secret) as secret, agent_id, workspace_table_id from workspace_pool where container = ? and state = ? and memory = ? and cpu = ? and volume_size = ? limit 1 for update",
 		container, models.WorkspacePoolStateAvailable, memory, cpu, volumeSize,
 	)
 	if err != nil {
@@ -112,7 +112,7 @@ func (p *WorkspacePool) GetWorkspace(container string, memory int64, cpu int64, 
 	ws.WorkspaceTableID = &workspaceId
 
 	// update the Workspace in the database
-	_, err = tx.Exec("update workspace_pool set state = ?, workspace_id = ? where _id = ?", ws.State, ws.WorkspaceTableID, ws.ID)
+	_, err = tx.Exec("update workspace_pool set state = ?, workspace_table_id = ? where _id = ?", ws.State, ws.WorkspaceTableID, ws.ID)
 	if err != nil {
 		return nil, fmt.Errorf("error updating Workspace: %v", err)
 	}

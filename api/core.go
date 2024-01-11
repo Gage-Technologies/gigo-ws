@@ -125,6 +125,7 @@ func createWorkspace(ctx context.Context, opts createWorkspaceOptions) (*models.
 	}
 
 	if wsp != nil {
+		opts.Logger.Debugf("createWorkspace (%d): reusing existing workspace: %+v", ctx.Value("id"), wsp)
 		return &models.Agent{
 			ID:    wsp.AgentID,
 			Token: wsp.Secret,

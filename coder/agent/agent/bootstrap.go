@@ -1102,7 +1102,7 @@ func (a *agent) runBootstrap(ctx context.Context) error {
 
 	// perform workspace initialization if this
 	// is the workspace's first execution
-	if metadata.LastInitState <= models.WorkspaceInitWriteGitConfig {
+	if metadata.LastInitState <= models.WorkspaceInitWriteGitConfig && metadata.ChallengeType != models.BytesChallenge {
 		err := writeGitConfig(ctx, metadata)
 		if err != nil {
 			a.reportStateFailure(ctx, models.WorkspaceInitWriteGitConfig, err, nil)
@@ -1118,7 +1118,7 @@ func (a *agent) runBootstrap(ctx context.Context) error {
 	}
 	a.reportStateCompleted(ctx, models.WorkspaceInitWriteWorkspaceConfig)
 
-	if metadata.LastInitState <= models.WorkspaceInitGitClone {
+	if metadata.LastInitState <= models.WorkspaceInitGitClone && metadata.ChallengeType != models.BytesChallenge {
 		res, err := cloneRepo(ctx, metadata)
 		if err != nil || (res != nil && res.ExitCode != 0) {
 			a.reportStateFailure(ctx, models.WorkspaceInitGitClone, err, res)
@@ -1144,21 +1144,23 @@ func (a *agent) runBootstrap(ctx context.Context) error {
 		a.reportStateCompleted(ctx, models.WorkspaceInitContainerComposeUp)
 	}
 
-	res, err := a.installCodeServer(ctx, metadata)
-	if err != nil || (res != nil && res.ExitCode != 0) {
-		a.reportStateFailure(ctx, models.WorkspaceInitVSCodeInstall, err, res)
-		return err
-	}
-	a.reportStateCompleted(ctx, models.WorkspaceInitVSCodeInstall)
+	if metadata.GigoConfig.VSCode.Enabled {
+		res, err := a.installCodeServer(ctx, metadata)
+		if err != nil || (res != nil && res.ExitCode != 0) {
+			a.reportStateFailure(ctx, models.WorkspaceInitVSCodeInstall, err, res)
+			return err
+		}
+		a.reportStateCompleted(ctx, models.WorkspaceInitVSCodeInstall)
 
-	res, err = a.installCodeServerExtensions(ctx, metadata)
-	if err != nil || (res != nil && res.ExitCode != 0) {
-		a.reportStateFailure(ctx, models.WorkspaceInitVSCodeExtensionInstall, err, res)
-		return err
+		res, err = a.installCodeServerExtensions(ctx, metadata)
+		if err != nil || (res != nil && res.ExitCode != 0) {
+			a.reportStateFailure(ctx, models.WorkspaceInitVSCodeExtensionInstall, err, res)
+			return err
+		}
+		a.reportStateCompleted(ctx, models.WorkspaceInitVSCodeExtensionInstall)
 	}
-	a.reportStateCompleted(ctx, models.WorkspaceInitVSCodeExtensionInstall)
 
-	res, err = handleUserExecutions(ctx, metadata, metadata.LastInitState)
+	res, err := handleUserExecutions(ctx, metadata, metadata.LastInitState)
 	if err != nil || (res != nil && res.ExitCode != 0) {
 		a.reportStateFailure(ctx, models.WorkspaceInitShellExecutions, err, res)
 		return err
