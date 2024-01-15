@@ -1,8 +1,10 @@
 package payload
 
+import "github.com/gage-technologies/gigo-lib/db/models"
+
 type LintRequestPayload struct {
-	Lang int    `json:"lang"`
-	Code string `json:"code"`
+	Lang models.ProgrammingLanguage `json:"lang"`
+	Code string                     `json:"code"`
 }
 
 type LintResult struct {

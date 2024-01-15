@@ -1,17 +1,19 @@
 package core
 
 import (
-	"cdr.dev/slog"
 	"context"
 	"fmt"
 	"gigo-ws/coder/agent/agent/server/payload"
 	"gigo-ws/utils"
 	"time"
+
+	"cdr.dev/slog"
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 const pythonExecScript = `#!/bin/bash
-eval "$(/home/user/anaconda3/bin/conda shell.bash hook)" &> /dev/null
-/home/user/anaconda3/bin/conda activate /opt/python-bytes/default &> /dev/null
+eval "$(/opt/conda/miniconda/bin/conda shell.bash hook)" &> /dev/null
+/opt/conda/miniconda/bin/conda activate /opt/python-bytes/default &> /dev/null
 python <<EOF
 %s
 EOF
@@ -139,7 +141,7 @@ func execGolang(ctx context.Context, code string, stdout chan string, stderr cha
 	return nil
 }
 
-func ExecCode(ctx context.Context, codeString string, language ProgrammingLanguage, logger slog.Logger) (chan payload.ExecResponsePayload, error) {
+func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, logger slog.Logger) (chan payload.ExecResponsePayload, error) {
 
 	payloadChan := make(chan payload.ExecResponsePayload, 100)
 
@@ -148,13 +150,13 @@ func ExecCode(ctx context.Context, codeString string, language ProgrammingLangua
 
 	switch language {
 
-	case Python:
+	case models.Python:
 		err := execPython(ctx, codeString, stdOut, stdErr, payloadChan, logger)
 		if err != nil {
 			return nil, err
 		}
 		return payloadChan, nil
-	case Golang:
+	case models.Go:
 		err := execGolang(ctx, codeString, stdOut, stdErr, payloadChan, logger)
 		if err != nil {
 			return nil, err

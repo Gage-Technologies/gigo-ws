@@ -1,18 +1,20 @@
 package core
 
 import (
-	"cdr.dev/slog"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"gigo-ws/coder/agent/agent/server/payload"
 	"gigo-ws/utils"
+
+	"cdr.dev/slog"
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 const pythonLintScript = `#!/bin/bash
-eval "$(conda shell.bash hook)" &> /dev/null
-conda activate /opt/python-bytes/default &> /dev/null
+eval "$(/opt/conda/miniconda/bin/conda shell.bash hook)" &> /dev/null
+/opt/conda/miniconda/bin/conda activate /opt/python-bytes/default &> /dev/null
 mkdir -p /tmp/pyrun
 cat <<EOF > /tmp/pyrun/main.py
 %s
@@ -129,17 +131,17 @@ func lintGolang(ctx context.Context, code string, logger slog.Logger) (*payload.
 	return &res, nil
 }
 
-func LintCode(ctx context.Context, codeString string, language ProgrammingLanguage, logger slog.Logger) (*payload.LintResponsePayload, error) {
+func LintCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, logger slog.Logger) (*payload.LintResponsePayload, error) {
 
 	switch language {
 
-	case Python:
+	case models.Python:
 		lintRes, err := lintPython(ctx, codeString, logger)
 		if err != nil {
 			return nil, err
 		}
 		return lintRes, nil
-	case Golang:
+	case models.Go:
 		lintRes, err := lintGolang(ctx, codeString, logger)
 		if err != nil {
 			return nil, err

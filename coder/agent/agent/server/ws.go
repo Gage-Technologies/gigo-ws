@@ -1,7 +1,6 @@
 package server
 
 import (
-	"cdr.dev/slog"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,7 +12,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"cdr.dev/slog"
+
 	"gigo-ws/coder/agent/agent/server/payload"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/sourcegraph/conc/pool"
 	"nhooyr.io/websocket"
@@ -120,12 +122,13 @@ func (a *HttpApi) MasterWebSocket(w http.ResponseWriter, r *http.Request) {
 		ws:              ws,
 		lastInteraction: &safeTime,
 		// we allocate 4 workers for the socket plus one for the user poller
-		pool:     pool.New().WithMaxGoroutines(5),
-		ctx:      ctx,
-		cancel:   cancel,
-		logger:   a.Logger,
+		pool:   pool.New().WithMaxGoroutines(5),
+		ctx:    ctx,
+		cancel: cancel,
+		logger: a.Logger,
 		handlers: map[payload.WebSocketMessageType]WebSocketHandlerFunc{
-			// function handlers
+			payload.WebSocketMessageTypeExecRequest: a.ExecCode,
+			payload.WebSocketMessageTypeLintRequest: a.LintCode,
 		},
 	}
 
@@ -442,7 +445,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 		return
 	}
 
-	payloadRes, err := core.ExecCode(socket.ctx, mes.Code, core.ProgrammingLanguage(mes.Lang), a.Logger)
+	payloadRes, err := core.ExecCode(socket.ctx, mes.Code, mes.Lang, a.Logger)
 	if err != nil {
 		socket.logger.Error(
 			socket.ctx,
@@ -469,17 +472,19 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 	}
 
 	// return the chat payload to the client
-	err = wsjson.Write(socket.ctx, socket.ws, payload.PrepPayload(
-		msg.SequenceID,
-		payload.WebSocketMessageTypeExecResponse,
-		payloadRes,
-	))
-	if err != nil {
-		a.Logger.Error(
-			socket.ctx,
-			"failed to send new exec payload",
-			slog.Error(err),
-		)
+	for r := range payloadRes {
+		err = wsjson.Write(socket.ctx, socket.ws, payload.PrepPayload(
+			msg.SequenceID,
+			payload.WebSocketMessageTypeExecResponse,
+			r,
+		))
+		if err != nil {
+			a.Logger.Error(
+				socket.ctx,
+				"failed to send new exec payload",
+				slog.Error(err),
+			)
+		}
 	}
 }
 
@@ -561,7 +566,7 @@ func (a *HttpApi) LintCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 		return
 	}
 
-	payloadRes, err := core.LintCode(socket.ctx, mes.Code, core.ProgrammingLanguage(mes.Lang), a.Logger)
+	payloadRes, err := core.LintCode(socket.ctx, mes.Code, mes.Lang, a.Logger)
 	if err != nil {
 		socket.logger.Error(
 			socket.ctx,

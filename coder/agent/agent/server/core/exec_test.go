@@ -1,15 +1,17 @@
 package core
 
 import (
-	"cdr.dev/slog"
-	"cdr.dev/slog/sloggers/sloghuman"
 	"context"
 	"os"
 	"testing"
+
+	"cdr.dev/slog"
+	"cdr.dev/slog/sloggers/sloghuman"
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func Test_ExecCode(t *testing.T) {
-	payloadRes, err := ExecCode(context.Background(), "print('hello world')", Python, slog.Make(sloghuman.Sink(os.Stdout)))
+	payloadRes, err := ExecCode(context.Background(), "print('hello world')", models.Python, slog.Make(sloghuman.Sink(os.Stdout)))
 	if err != nil {
 		t.Error(err)
 		return
@@ -38,7 +40,7 @@ func Test_ExecCode(t *testing.T) {
 		}
 	}
 
-	payloadRes, err = ExecCode(context.Background(), "package main\nimport \"fmt\"\n\nfunc main(){\n\tfmt.Println(\"hello world\")\n}", Golang, slog.Make(sloghuman.Sink(os.Stdout)))
+	payloadRes, err = ExecCode(context.Background(), "package main\nimport \"fmt\"\n\nfunc main(){\n\tfmt.Println(\"hello world\")\n}", models.Go, slog.Make(sloghuman.Sink(os.Stdout)))
 	if err != nil {
 		t.Error(err)
 		return

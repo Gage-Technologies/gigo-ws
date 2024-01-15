@@ -1,18 +1,20 @@
 package core
 
 import (
-	"cdr.dev/slog"
-	"cdr.dev/slog/sloggers/sloghuman"
 	"context"
 	"fmt"
 	"os"
 	"testing"
+
+	"cdr.dev/slog"
+	"cdr.dev/slog/sloggers/sloghuman"
+	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
 func Test_LintCode(t *testing.T) {
 	ctx := context.Background()
 
-	res, err := LintCode(ctx, "print('hello world')", Python, slog.Make(sloghuman.Sink(os.Stdout)))
+	res, err := LintCode(ctx, "print('hello world')", models.Python, slog.Make(sloghuman.Sink(os.Stdout)))
 	if err != nil {
 		t.Error(err)
 		return
@@ -56,7 +58,7 @@ func Test_LintCode(t *testing.T) {
 
 	t.Log(res.LintRes)
 
-	res, err = LintCode(ctx, "fmt.Println('hello world')", Golang, slog.Make(sloghuman.Sink(os.Stdout)))
+	res, err = LintCode(ctx, "fmt.Println('hello world')", models.Go, slog.Make(sloghuman.Sink(os.Stdout)))
 	if err != nil {
 		t.Error(err)
 		return
