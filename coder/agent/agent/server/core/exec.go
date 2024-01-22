@@ -129,7 +129,7 @@ func execGolang(ctx context.Context, code string, stdout chan string, stderr cha
 	commandRes, err := utils.ExecuteCommandStream(ctx, nil, stdout,
 		stderr, "bash", "-c", fmt.Sprintf(golangExecScript, code))
 	if err != nil {
-		logger.Error(ctx, "failed to execute golang code: %s", slog.Error(err))
+		logger.Error(ctx, "failed to execute golang code: %s", slog.Error(err), slog.F("script", golangExecScript))
 		return err
 	}
 
@@ -137,7 +137,7 @@ func execGolang(ctx context.Context, code string, stdout chan string, stderr cha
 	res.StatusCode = commandRes.ExitCode
 	res.Done = true
 	payloadChan <- res
-	logger.Info(ctx, "executed golang code with status code: %d", slog.F("status_code", res.StatusCode))
+	logger.Info(ctx, "executed golang code with status code: %d", slog.F("status_code", res.StatusCode), slog.F("script", golangExecScript))
 	return nil
 }
 
