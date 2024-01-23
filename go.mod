@@ -8,7 +8,7 @@ require (
 	github.com/buger/jsonparser v1.1.1
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20240120113453-1bdc2ccd2177
+	github.com/gage-technologies/gigo-lib v0.0.0-20240123001045-3f5d7763c7be
 	github.com/gliderlabs/ssh v0.3.4
 	github.com/go-chi/chi v1.5.5
 	github.com/go-chi/cors v1.2.1
@@ -217,3 +217,5 @@ replace tailscale.com => github.com/coder/tailscale v0.0.0-20230522123520-747122
 // subpath and it includes changes to golang.org/x/crypto/ssh as well which
 // makes importing it directly a bit messy.
 replace github.com/gliderlabs/ssh => github.com/coder/ssh v0.0.0-20230621095435-9a7e23486f1c
+
+replace github.com/go-cmd/cmd => github.com/gage-technologies/cmd v1.5.0

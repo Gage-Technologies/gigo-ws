@@ -2,16 +2,35 @@ package payload
 
 import "github.com/gage-technologies/gigo-lib/db/models"
 
+type CancelExecRequestPayload struct {
+	CommandID string `json:"command_id" validate:"number"`
+}
+
+type CancelExecResponsePayload struct {
+	CommandID string `json:"command_id" validate:"number"`
+}
+
+type StdinExecRequestPayload struct {
+	CommandID string `json:"command_id" validate:"number"`
+	Input     string `json:"input"`
+}
+
+type StdinExecResponsePayload struct {
+	CommandID string `json:"command_id" validate:"number"`
+}
+
 type ExecRequestPayload struct {
 	Lang models.ProgrammingLanguage `json:"lang"`
 	Code string                     `json:"code"`
 }
 
 type ExecResponsePayload struct {
-	StdOut     []OutputRow `json:"stdout"`
-	StdErr     []OutputRow `json:"stderr"`
-	StatusCode int         `json:"status_code"`
-	Done       bool        `json:"done"`
+	CommandID       int64       `json:"command_id"`
+	CommandIDString string      `json:"command_id_string"`
+	StdOut          []OutputRow `json:"stdout"`
+	StdErr          []OutputRow `json:"stderr"`
+	StatusCode      int         `json:"status_code"`
+	Done            bool        `json:"done"`
 }
 
 type OutputRow struct {

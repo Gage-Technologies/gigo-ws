@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"cdr.dev/slog"
@@ -18,7 +19,7 @@ func Test_ExecCode(t *testing.T) {
 	}
 
 	for {
-		res := <-payloadRes
+		res := <-payloadRes.ResponseChan
 		if res.Done {
 			if res.StatusCode != 0 {
 				t.Error(res.StatusCode)
@@ -47,7 +48,7 @@ func Test_ExecCode(t *testing.T) {
 	}
 
 	for {
-		res := <-payloadRes
+		res := <-payloadRes.ResponseChan
 		if res.Done {
 			if res.StatusCode != 0 {
 				t.Error(res.StatusCode)
@@ -60,7 +61,7 @@ func Test_ExecCode(t *testing.T) {
 				return
 			}
 
-			if res.StdOut[0].Content != "hello world\n" {
+			if strings.TrimSpace(res.StdOut[0].Content) != "hello world" {
 				t.Error(res.StdOut[0].Content)
 				return
 			}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gigo-ws/coder/agent/agent/server/payload"
 	"gigo-ws/utils"
+	"io"
 	"time"
 
 	"cdr.dev/slog"
@@ -14,6 +15,8 @@ import (
 const pythonExecScript = `#!/bin/bash
 eval "$(/opt/conda/miniconda/bin/conda shell.bash hook)" &> /dev/null
 /opt/conda/miniconda/bin/conda activate /opt/python-bytes/default &> /dev/null
+pipreqs --force . &> /dev/null
+pip install -r requirements.txt &> /dev/null
 python <<EOF
 %s
 EOF
@@ -27,143 +30,101 @@ EOF
 go run /tmp/gorun/main.go
 `
 
-func execPython(ctx context.Context, code string, stdout chan string, stderr chan string, payloadChan chan payload.ExecResponsePayload, logger slog.Logger) error {
-	// default payload
-	res := payload.ExecResponsePayload{
-		StdOut:     make([]payload.OutputRow, 0),
-		StdErr:     make([]payload.OutputRow, 0),
-		StatusCode: -1,
-		Done:       false,
-	}
+type ActiveCommand struct {
+	Ctx          context.Context
+	Cancel       context.CancelFunc
+	Stdin        io.WriteCloser
+	ResponseChan chan payload.ExecResponsePayload
+}
 
-	// execute loop in go routine to read from the stdout and stderr channels
-	// and pipe the content back to the payload channel
-	done := make(chan struct{})
-	defer close(done)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case <-ctx.Done():
-				return
-			case s := <-stdout:
-				res.StdOut = append(
-					res.StdOut,
-					payload.OutputRow{
-						Content:   s,
-						Timestamp: time.Now().UnixNano(),
-					},
-				)
-			case s := <-stderr:
-				res.StdErr = append(
-					res.StdErr,
-					payload.OutputRow{
-						Content:   s,
-						Timestamp: time.Now().UnixNano(),
-					},
-				)
-			}
-			payloadChan <- res
-		}
-	}()
-
+func execPython(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// execute python code
-	commandRes, err := utils.ExecuteCommandStream(ctx, nil, stdout,
+	return utils.ExecuteCommandStreamStdin(ctx, nil, stdout,
 		stderr, "bash", "-c", fmt.Sprintf(pythonExecScript, code))
-	if err != nil {
-		logger.Error(ctx, "failed to execute python code: %s", slog.Error(err))
-		return err
-	}
-
-	// update the response payload and return to payload channel
-	res.StatusCode = commandRes.ExitCode
-	res.Done = true
-	payloadChan <- res
-	logger.Info(ctx, "executed python code with status code: %d", slog.F("status_code", res.StatusCode))
-	return nil
 }
 
-func execGolang(ctx context.Context, code string, stdout chan string, stderr chan string, payloadChan chan payload.ExecResponsePayload, logger slog.Logger) error {
-	// default payload
-	res := payload.ExecResponsePayload{
-		StdOut:     make([]payload.OutputRow, 0),
-		StdErr:     make([]payload.OutputRow, 0),
-		StatusCode: -1,
-		Done:       false,
-	}
-
-	// execute loop in go routine to read from the stdout and stderr channels
-	// and pipe the content back to the payload channel
-	done := make(chan struct{})
-	defer close(done)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case <-ctx.Done():
-				return
-			case s := <-stdout:
-				res.StdOut = append(
-					res.StdOut,
-					payload.OutputRow{
-						Content:   s,
-						Timestamp: time.Now().UnixNano(),
-					},
-				)
-			case s := <-stderr:
-				res.StdErr = append(
-					res.StdErr,
-					payload.OutputRow{
-						Content:   s,
-						Timestamp: time.Now().UnixNano(),
-					},
-				)
-			}
-			payloadChan <- res
-		}
-	}()
-
+func execGolang(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// execute python code
-	commandRes, err := utils.ExecuteCommandStream(ctx, nil, stdout,
+	return utils.ExecuteCommandStreamStdin(ctx, nil, stdout,
 		stderr, "bash", "-c", fmt.Sprintf(golangExecScript, code))
-	if err != nil {
-		logger.Error(ctx, "failed to execute golang code: %s", slog.Error(err), slog.F("script", golangExecScript))
-		return err
-	}
-
-	// update the response payload and return to payload channel
-	res.StatusCode = commandRes.ExitCode
-	res.Done = true
-	payloadChan <- res
-	logger.Info(ctx, "executed golang code with status code: %d", slog.F("status_code", res.StatusCode), slog.F("script", golangExecScript))
-	return nil
 }
 
-func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, logger slog.Logger) (chan payload.ExecResponsePayload, error) {
-
+func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, logger slog.Logger) (*ActiveCommand, error) {
 	payloadChan := make(chan payload.ExecResponsePayload, 100)
-
 	stdOut := make(chan string)
 	stdErr := make(chan string)
 
-	switch language {
+	// default payload
+	res := payload.ExecResponsePayload{
+		StdOut:     make([]payload.OutputRow, 0),
+		StdErr:     make([]payload.OutputRow, 0),
+		StatusCode: -1,
+		Done:       false,
+	}
 
+	// create a new command context derived from the parent context with a cancel
+	commandCtx, commandCancel := context.WithCancel(ctx)
+
+	var stdin io.WriteCloser
+	var completionChan <-chan *utils.CommandResult
+	var err error
+	switch language {
 	case models.Python:
-		err := execPython(ctx, codeString, stdOut, stdErr, payloadChan, logger)
+		stdin, completionChan, err = execPython(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
-			return nil, err
+			commandCancel()
+			return nil, fmt.Errorf("failed to exec python: %v", err)
 		}
-		return payloadChan, nil
 	case models.Go:
-		err := execGolang(ctx, codeString, stdOut, stdErr, payloadChan, logger)
+		stdin, completionChan, err = execGolang(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
-			return nil, err
+			commandCancel()
+			return nil, fmt.Errorf("failed to exec golang: %v", err)
 		}
-		return payloadChan, nil
 	default:
+		commandCancel()
 		return nil, fmt.Errorf("unsupported programming language: %s", language.String())
 	}
 
+	// execute loop in go routine to read from the stdout and stderr channels
+	// and pipe the content back to the payload channel
+	go func() {
+		for {
+			select {
+			case s := <-stdOut:
+				res.StdOut = append(
+					res.StdOut,
+					payload.OutputRow{
+						Content:   s,
+						Timestamp: time.Now().UnixNano(),
+					},
+				)
+			case s := <-stdErr:
+				res.StdErr = append(
+					res.StdErr,
+					payload.OutputRow{
+						Content:   s,
+						Timestamp: time.Now().UnixNano(),
+					},
+				)
+			case commandRes := <-completionChan:
+				if commandRes == nil {
+					return // no more results available
+				}
+				res.StatusCode = commandRes.ExitCode
+				res.Done = true
+				payloadChan <- res
+				logger.Info(ctx, "comepleted execution", slog.F("result", commandRes))
+				return
+			}
+			payloadChan <- res
+		}
+	}()
+
+	return &ActiveCommand{
+		Ctx:          commandCtx,
+		Cancel:       commandCancel,
+		Stdin:        stdin,
+		ResponseChan: payloadChan,
+	}, nil
 }
