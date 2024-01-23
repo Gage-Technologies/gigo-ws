@@ -126,6 +126,29 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 		socket.activeCommands.Delete(commandID)
 	}()
 
+	// write the first response from the command with empty response data to get the id
+	// to the caller as fast as possible - this is important because an early cancel
+	// can't occur until the id has been returned to the caller
+	err = wsjson.Write(socket.ctx, socket.ws, payload.PrepPayload(
+		msg.SequenceID,
+		payload.WebSocketMessageTypeExecResponse,
+		payload.ExecResponsePayload{
+			CommandID:       commandID,
+			CommandIDString: fmt.Sprintf("%d", commandID),
+			StdOut:          []payload.OutputRow{},
+			StdErr:          []payload.OutputRow{},
+			StatusCode:      -1,
+			Done:            false,
+		},
+	))
+	if err != nil {
+		a.Logger.Error(
+			socket.ctx,
+			"failed to send new exec payload",
+			slog.Error(err),
+		)
+	}
+
 	// return the chat payload to the client
 	for r := range activeCommand.ResponseChan {
 		// update every response with the command id
