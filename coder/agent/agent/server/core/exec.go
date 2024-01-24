@@ -6,28 +6,19 @@ import (
 	"gigo-ws/coder/agent/agent/server/payload"
 	"gigo-ws/utils"
 	"io"
+	"os"
 	"time"
 
 	"cdr.dev/slog"
 	"github.com/gage-technologies/gigo-lib/db/models"
+	utils2 "github.com/gage-technologies/gigo-lib/utils"
 )
 
-const pythonExecScript = `#!/bin/bash
-eval "$(/opt/conda/miniconda/bin/conda shell.bash hook)" &> /dev/null
-/opt/conda/miniconda/bin/conda activate /opt/python-bytes/default &> /dev/null
+const pythonPrepScript = `#!/bin/bash
+eval "$(conda shell.bash hook)" &> /dev/null
+conda activate /opt/python-bytes/default &> /dev/null
 pipreqs --force . &> /dev/null
 pip install -r requirements.txt &> /dev/null
-python <<EOF
-%s
-EOF
-`
-
-const golangExecScript = `#!/bin/bash
-mkdir -p /tmp/gorun
-cat <<EOF > /tmp/gorun/main.go
-%s
-EOF
-go run /tmp/gorun/main.go
 `
 
 type ActiveCommand struct {
@@ -38,15 +29,50 @@ type ActiveCommand struct {
 }
 
 func execPython(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/pyrun"); !ok {
+		err := os.MkdirAll("/tmp/pyrun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	// write the python file
+	err := os.WriteFile("/tmp/pyrun/main.py", []byte(code), 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to write file: %w", err)
+	}
+
 	// execute python code
-	return utils.ExecuteCommandStreamStdin(ctx, nil, stdout,
-		stderr, "bash", "-c", fmt.Sprintf(pythonExecScript, code))
+	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/pyrun", "bash", "-c", pythonPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/pyrun", stdout,
+		stderr, "/opt/python-bytes/default/bin/python", "-u", "main.py")
 }
 
 func execGolang(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
-	// execute python code
-	return utils.ExecuteCommandStreamStdin(ctx, nil, stdout,
-		stderr, "bash", "-c", fmt.Sprintf(golangExecScript, code))
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/gorun"); !ok {
+		err := os.MkdirAll("/tmp/gorun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	// write the python file
+	err := os.WriteFile("/tmp/gorun/main.go", []byte(code), 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to write file: %w", err)
+	}
+
+	// conditionally initialize the go module
+	if ok, _ := utils2.PathExists("/tmp/gorun/go.mod"); !ok {
+		_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/gorun", "go", "mod", "init", "gigo-byte")
+	}
+
+	// execute go code
+	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/gorun", "go", "mod", "tidy")
+	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/gorun", stdout,
+		stderr, "go", "run", "main.go")
 }
 
 func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, logger slog.Logger) (*ActiveCommand, error) {

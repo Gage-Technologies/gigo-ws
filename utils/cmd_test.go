@@ -126,7 +126,7 @@ func TestExecuteCommandStream(t *testing.T) {
 			outChan := make(chan string, 10)
 			errChan := make(chan string, 10)
 
-			out, err := ExecuteCommandStream(ctx, nil, outChan, errChan, tt.binary, tt.args...)
+			out, err := ExecuteCommandStream(ctx, nil, "", outChan, errChan, tt.binary, tt.args...)
 			if err != nil {
 				if tt.err == "" || (tt.err != "" && !strings.HasPrefix(err.Error(), tt.err)) {
 					t.Fatal(err)
