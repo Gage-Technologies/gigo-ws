@@ -15,7 +15,7 @@ import (
 )
 
 const pythonPrepScript = `#!/bin/bash
-eval "$(conda shell.bash hook)" &> /dev/null
+eval "$(/opt/conda/miniconda/bin/conda shell.bash hook)" &> /dev/null
 conda activate /opt/python-bytes/default &> /dev/null
 pipreqs --force . &> /dev/null
 pip install -r requirements.txt &> /dev/null
