@@ -218,4 +218,4 @@ replace tailscale.com => github.com/coder/tailscale v0.0.0-20230522123520-747122
 // makes importing it directly a bit messy.
 replace github.com/gliderlabs/ssh => github.com/coder/ssh v0.0.0-20230621095435-9a7e23486f1c
 
-replace github.com/go-cmd/cmd => github.com/gage-technologies/cmd v1.5.0
+replace github.com/go-cmd/cmd => github.com/gage-technologies/cmd v1.5.1

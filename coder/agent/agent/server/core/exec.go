@@ -7,6 +7,7 @@ import (
 	"gigo-ws/utils"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"cdr.dev/slog"
@@ -46,7 +47,7 @@ func execPython(ctx context.Context, code string, stdout chan string, stderr cha
 	// execute python code
 	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/pyrun", "bash", "-c", pythonPrepScript)
 	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/pyrun", stdout,
-		stderr, "/opt/python-bytes/default/bin/python", "-u", "main.py")
+		stderr, true, "/opt/python-bytes/default/bin/python", "-u", "main.py")
 }
 
 func execGolang(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
@@ -72,7 +73,33 @@ func execGolang(ctx context.Context, code string, stdout chan string, stderr cha
 	// execute go code
 	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/gorun", "go", "mod", "tidy")
 	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/gorun", stdout,
-		stderr, "go", "run", "main.go")
+		stderr, true, "go", "run", "main.go")
+}
+
+// updateOutput updates the output slice with new data.
+// It either appends a new line or updates the last partial line.
+func updateOutput(output *[]payload.OutputRow, lastLineIndex **int, newData string) {
+	if *lastLineIndex != nil {
+		// Update the last line if it is a partial line
+		lastLine := &(*output)[**lastLineIndex]
+		lastLine.Content += newData
+
+		if strings.HasSuffix(newData, "\n") {
+			*lastLineIndex = nil // The last line is now complete
+		}
+	} else {
+		// Append a new line
+		*output = append(*output, payload.OutputRow{
+			Content:   newData,
+			Timestamp: time.Now().UnixNano(),
+		})
+		lastIndex := len(*output) - 1
+		*lastLineIndex = &lastIndex
+
+		if strings.HasSuffix(newData, "\n") {
+			*lastLineIndex = nil // The line is complete
+		}
+	}
 }
 
 func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, logger slog.Logger) (*ActiveCommand, error) {
@@ -115,24 +142,14 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 	// execute loop in go routine to read from the stdout and stderr channels
 	// and pipe the content back to the payload channel
 	go func() {
+		var lastStdOutLineIndex, lastStdErrLineIndex *int
+
 		for {
 			select {
 			case s := <-stdOut:
-				res.StdOut = append(
-					res.StdOut,
-					payload.OutputRow{
-						Content:   s,
-						Timestamp: time.Now().UnixNano(),
-					},
-				)
+				updateOutput(&res.StdOut, &lastStdOutLineIndex, s)
 			case s := <-stdErr:
-				res.StdErr = append(
-					res.StdErr,
-					payload.OutputRow{
-						Content:   s,
-						Timestamp: time.Now().UnixNano(),
-					},
-				)
+				updateOutput(&res.StdErr, &lastStdErrLineIndex, s)
 			case commandRes := <-completionChan:
 				if commandRes == nil {
 					return // no more results available

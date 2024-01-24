@@ -17,7 +17,7 @@ const pythonScript = `# your_script.py
 import time
 print("Sleeping 5s")
 time.sleep(5)
-user_input = input("Please enter some data: \n")
+user_input = input("Please enter some data: ")
 print(f"You entered: {user_input}")`
 
 const goScript = `package main
@@ -29,27 +29,13 @@ import (
 )
 
 func main() {
-	fmt.Println("Waiting input")
+	fmt.Printf("Waiting input: ")
 	reader := bufio.NewReader(os.Stdin)
 	input, _ := reader.ReadString('\n')
 	fmt.Println(input)
 }`
 
 func main() {
-	stdout := make(chan string)
-	stderr := make(chan string)
-
-	go func() {
-		for {
-			select {
-			case l := <-stdout:
-				os.Stdout.Write([]byte(l + "\n"))
-			case l := <-stderr:
-				os.Stderr.Write([]byte(l + "\n"))
-			}
-		}
-	}()
-
 	cmd, err := core.ExecCode(context.TODO(), pythonScript, models.Python, slog.Make(sloghuman.Sink(os.Stdout)))
 	if err != nil {
 		panic(err)
@@ -61,8 +47,24 @@ func main() {
 		cmd.Stdin.Write([]byte(input))
 	}()
 
+	stdoutIdx := 0
+	stderrIdx := 0
 	for r := range cmd.ResponseChan {
-		buf, _ := json.MarshalIndent(r, "", "  ")
+		fmt.Println("\n-------------------\n")
+		buf, _ := json.Marshal(r)
 		fmt.Println(string(buf))
+		fmt.Println("\n-------------------\n")
+		if len(r.StdOut) > stdoutIdx {
+			for _, l := range r.StdOut[stdoutIdx:] {
+				os.Stdout.WriteString(l.Content)
+			}
+			stderrIdx = len(r.StdOut)
+		}
+		if len(r.StdErr) > stderrIdx {
+			for _, l := range r.StdErr[stderrIdx:] {
+				os.Stderr.WriteString(l.Content)
+			}
+			stderrIdx = len(r.StdErr)
+		}
 	}
 }
