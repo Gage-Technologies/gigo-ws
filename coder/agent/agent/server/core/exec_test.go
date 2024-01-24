@@ -2,9 +2,12 @@ package core
 
 import (
 	"context"
+	"gigo-ws/coder/agent/agent/server/payload"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"cdr.dev/slog"
 	"cdr.dev/slog/sloggers/sloghuman"
@@ -70,4 +73,143 @@ func Test_ExecCode(t *testing.T) {
 			break
 		}
 	}
+}
+
+func TestUpdateOutput(t *testing.T) {
+	tests := []struct {
+		name            string
+		existingOutput  []payload.OutputRow
+		lastLineIndex   *int
+		newData         string
+		expectedOutput  []payload.OutputRow
+		expectedLastIdx *int
+	}{
+		{
+			name:            "Append new data without newline",
+			existingOutput:  []payload.OutputRow{},
+			lastLineIndex:   nil,
+			newData:         "Test data",
+			expectedOutput:  []payload.OutputRow{{Content: "Test data", Timestamp: 0}},
+			expectedLastIdx: func() *int { i := 0; return &i }(),
+		},
+		{
+			name:           "Append new line",
+			existingOutput: []payload.OutputRow{{Content: "Test data", Timestamp: 0}},
+			lastLineIndex:  func() *int { i := 0; return &i }(),
+			newData:        "\nNew line",
+			expectedOutput: []payload.OutputRow{
+				{Content: "Test data", Timestamp: 0},
+				{Content: "New line", Timestamp: 0},
+			},
+			expectedLastIdx: func() *int { i := 1; return &i }(),
+		},
+		{
+			name:            "Carriage return - overwrite line",
+			existingOutput:  []payload.OutputRow{{Content: "Old data", Timestamp: 0}},
+			lastLineIndex:   func() *int { i := 0; return &i }(),
+			newData:         "\rNew data",
+			expectedOutput:  []payload.OutputRow{{Content: "New data", Timestamp: 0}},
+			expectedLastIdx: func() *int { i := 0; return &i }(),
+		},
+		{
+			name:           "Multiple newlines in data",
+			existingOutput: []payload.OutputRow{{Content: "Line1", Timestamp: 0}},
+			lastLineIndex:  func() *int { i := 0; return &i }(),
+			newData:        "Line2\nLine3\nLine4",
+			expectedOutput: []payload.OutputRow{
+				{Content: "Line1Line2", Timestamp: 0},
+				{Content: "Line3", Timestamp: 0},
+				{Content: "Line4", Timestamp: 0},
+			},
+			expectedLastIdx: func() *int { i := 2; return &i }(),
+		},
+		{
+			name:           "Mixed newlines and carriage returns",
+			existingOutput: []payload.OutputRow{{Content: "Line1", Timestamp: 0}},
+			lastLineIndex:  func() *int { i := 0; return &i }(),
+			newData:        "\rLine2\nLine3\r\nLine4",
+			expectedOutput: []payload.OutputRow{
+				{Content: "Line2", Timestamp: 0},
+				{Content: "", Timestamp: 0},
+				{Content: "Line4", Timestamp: 0},
+			},
+			expectedLastIdx: func() *int { i := 2; return &i }(),
+		},
+		{
+			name:           "Consecutive carriage returns",
+			existingOutput: []payload.OutputRow{{Content: "Line1", Timestamp: 0}},
+			lastLineIndex:  func() *int { i := 0; return &i }(),
+			newData:        "\rLine2\rLine3",
+			expectedOutput: []payload.OutputRow{
+				{Content: "Line3", Timestamp: 0},
+			},
+			expectedLastIdx: func() *int { i := 0; return &i }(),
+		},
+		{
+			name:           "Empty new data",
+			existingOutput: []payload.OutputRow{{Content: "Line1", Timestamp: 0}},
+			lastLineIndex:  func() *int { i := 0; return &i }(),
+			newData:        "",
+			expectedOutput: []payload.OutputRow{
+				{Content: "Line1", Timestamp: 0},
+			},
+			expectedLastIdx: func() *int { i := 0; return &i }(),
+		},
+		{
+			name:           "Newline at start of data",
+			existingOutput: []payload.OutputRow{{Content: "Line1", Timestamp: 0}},
+			lastLineIndex:  func() *int { i := 0; return &i }(),
+			newData:        "\nLine2",
+			expectedOutput: []payload.OutputRow{
+				{Content: "Line1", Timestamp: 0},
+				{Content: "Line2", Timestamp: 0},
+			},
+			expectedLastIdx: func() *int { i := 1; return &i }(),
+		},
+		{
+			name:           "Carriage return at start of data",
+			existingOutput: []payload.OutputRow{{Content: "Line1", Timestamp: 0}},
+			lastLineIndex:  func() *int { i := 0; return &i }(),
+			newData:        "\rLine2",
+			expectedOutput: []payload.OutputRow{
+				{Content: "Line2", Timestamp: 0},
+			},
+			expectedLastIdx: func() *int { i := 0; return &i }(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Mock the time
+			// mockTime := time.Now().UnixNano()
+			// timeNow = func() int64 { return mockTime }
+
+			updateOutput(&tt.existingOutput, &tt.lastLineIndex, tt.newData)
+
+			// Check if output matches expected
+			for i, row := range tt.expectedOutput {
+				row.Timestamp = 0
+				tt.expectedOutput[i] = row
+			}
+			for i, row := range tt.existingOutput {
+				row.Timestamp = 0
+				tt.existingOutput[i] = row
+			}
+
+			if !reflect.DeepEqual(tt.existingOutput, tt.expectedOutput) {
+				t.Errorf("updateOutput() got = %v, want %v", tt.existingOutput, tt.expectedOutput)
+			}
+
+			// Check last index
+			if (tt.lastLineIndex == nil) != (tt.expectedLastIdx == nil) ||
+				(tt.lastLineIndex != nil && *tt.lastLineIndex != *tt.expectedLastIdx) {
+				t.Errorf("updateOutput() last index got = %v, want %v", tt.lastLineIndex, tt.expectedLastIdx)
+			}
+		})
+	}
+}
+
+// Mock function to get current time
+var timeNow = func() int64 {
+	return time.Now().UnixNano()
 }
