@@ -13,6 +13,7 @@ import (
 
 	"cdr.dev/slog"
 
+	"gigo-ws/coder/agent/agent/server/core"
 	"gigo-ws/coder/agent/agent/server/payload"
 
 	"github.com/go-playground/validator/v10"
@@ -156,6 +157,12 @@ func (a *HttpApi) masterWebSocketLoop(socket *masterWebSocket) {
 		// close the web socket connection
 		// NOTE: if we are closing here then something has gone wrong
 		socket.ws.Close(websocket.StatusInternalError, "internal server error")
+
+		// cancel all of the command context
+		socket.activeCommands.Range(func(_ any, value any) bool {
+			value.(*core.ActiveCommand).Cancel()
+			return true
+		})
 
 		// wait for the cleanup of all the goroutines associatd with this websocket
 		socket.pool.Wait()

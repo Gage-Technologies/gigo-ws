@@ -138,8 +138,8 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 		Done:       false,
 	}
 
-	// create a new command context derived from the parent context with a cancel
-	commandCtx, commandCancel := context.WithCancel(ctx)
+	// create a new command context with a cancel
+	commandCtx, commandCancel := context.WithCancel(context.Background())
 
 	var stdin io.WriteCloser
 	var completionChan <-chan *utils.CommandResult
