@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"gigo-ws/coder/agent/agent/server/payload"
 	"os"
 	"reflect"
@@ -73,6 +74,45 @@ func Test_ExecCode(t *testing.T) {
 			break
 		}
 	}
+
+	payloadRes, err = ExecCode(context.Background(), "import time\nprint('started')\ntime.sleep(15)\nprint('completed')", models.Python, slog.Make(sloghuman.Sink(os.Stdout)))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	done := make(chan struct{})
+	go func() {
+		for {
+			res := <-payloadRes.ResponseChan
+			fmt.Println("\n\nnew result received:\n", res)
+			if res.Done {
+				if res.StatusCode != -1 {
+					t.Error(res.StatusCode)
+					break
+				}
+
+				if res.StdOut == nil || len(res.StdOut) == 0 {
+					t.Error("failed to receive stdout")
+					break
+				}
+
+				if res.StdOut[0].Content != "started" {
+					t.Error(res.StdOut[0].Content)
+					break
+				}
+
+				t.Log("python executed successfully: ", res.StdOut[0].Content)
+				break
+			}
+		}
+		done <- struct{}{}
+	}()
+
+	time.Sleep(time.Second * 5)
+	payloadRes.Cancel()
+
+	<-done
 }
 
 func TestUpdateOutput(t *testing.T) {

@@ -30,7 +30,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send validation error payload",
 				slog.Error(err),
@@ -57,7 +57,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send validation error payload",
 				slog.Error(err),
@@ -80,7 +80,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"no code received",
 				slog.Error(err),
@@ -89,7 +89,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 		return
 	}
 
-	activeCommand, err := core.ExecCode(socket.ctx, mes.Code, mes.Lang, a.Logger)
+	activeCommand, err := core.ExecCode(socket.ctx, mes.Code, mes.Lang, socket.logger)
 	if err != nil {
 		socket.logger.Error(
 			socket.ctx,
@@ -106,7 +106,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send error payload",
 				slog.Error(err),
@@ -142,7 +142,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 		},
 	))
 	if err != nil {
-		a.Logger.Error(
+		socket.logger.Error(
 			socket.ctx,
 			"failed to send new exec payload",
 			slog.Error(err),
@@ -161,7 +161,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 			r,
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send new exec payload",
 				slog.Error(err),
@@ -189,7 +189,7 @@ func (a *HttpApi) CancelExec(socket *masterWebSocket, msg *payload.WebSocketPayl
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send validation error payload",
 				slog.Error(err),
@@ -216,7 +216,7 @@ func (a *HttpApi) CancelExec(socket *masterWebSocket, msg *payload.WebSocketPayl
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send validation error payload",
 				slog.Error(err),
@@ -232,10 +232,12 @@ func (a *HttpApi) CancelExec(socket *masterWebSocket, msg *payload.WebSocketPayl
 	// parse command id
 	commandID, _ := strconv.ParseInt(mes.CommandID, 10, 64)
 
+	socket.logger.Info(socket.ctx, "received command cancellation", slog.F("command_id", commandID))
+
 	// save the active command to the websocket connection
 	command, ok := socket.activeCommands.Load(commandID)
 	if !ok {
-		a.Logger.Warn(socket.ctx, "received command cancellation request for non-existant command", slog.F("command_id", commandID))
+		socket.logger.Warn(socket.ctx, "received command cancellation request for non-existant command", slog.F("command_id", commandID))
 		err = wsjson.Write(socket.ctx, socket.ws, payload.PrepPayload(
 			msg.SequenceID,
 			payload.WebSocketMessageTypeCancelExecResponse,
@@ -244,7 +246,7 @@ func (a *HttpApi) CancelExec(socket *masterWebSocket, msg *payload.WebSocketPayl
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send cancel exec response",
 				slog.Error(err),
@@ -263,7 +265,7 @@ func (a *HttpApi) CancelExec(socket *masterWebSocket, msg *payload.WebSocketPayl
 		},
 	))
 	if err != nil {
-		a.Logger.Error(
+		socket.logger.Error(
 			socket.ctx,
 			"failed to send cancel exec response",
 			slog.Error(err),
@@ -290,7 +292,7 @@ func (a *HttpApi) StdinExec(socket *masterWebSocket, msg *payload.WebSocketPaylo
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send validation error payload",
 				slog.Error(err),
@@ -317,7 +319,7 @@ func (a *HttpApi) StdinExec(socket *masterWebSocket, msg *payload.WebSocketPaylo
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send validation error payload",
 				slog.Error(err),
@@ -336,7 +338,7 @@ func (a *HttpApi) StdinExec(socket *masterWebSocket, msg *payload.WebSocketPaylo
 	// save the active command to the websocket connection
 	command, ok := socket.activeCommands.Load(commandID)
 	if !ok {
-		a.Logger.Warn(socket.ctx, "received stdin request for non-existant command", slog.F("command_id", commandID))
+		socket.logger.Warn(socket.ctx, "received stdin request for non-existant command", slog.F("command_id", commandID))
 		err = wsjson.Write(socket.ctx, socket.ws, payload.PrepPayload(
 			msg.SequenceID,
 			payload.WebSocketMessageTypeStdinExecResponse,
@@ -345,7 +347,7 @@ func (a *HttpApi) StdinExec(socket *masterWebSocket, msg *payload.WebSocketPaylo
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send stdin exec response",
 				slog.Error(err),
@@ -356,7 +358,7 @@ func (a *HttpApi) StdinExec(socket *masterWebSocket, msg *payload.WebSocketPaylo
 
 	_, err = command.(*core.ActiveCommand).Stdin.Write([]byte(mes.Input))
 	if err != nil {
-		a.Logger.Error(socket.ctx, "failed to write stdin to command", slog.Error(err))
+		socket.logger.Error(socket.ctx, "failed to write stdin to command", slog.Error(err))
 		err = wsjson.Write(socket.ctx, socket.ws, payload.PrepPayload(
 			msg.SequenceID,
 			payload.WebSocketMessageTypeGenericError,
@@ -366,7 +368,7 @@ func (a *HttpApi) StdinExec(socket *masterWebSocket, msg *payload.WebSocketPaylo
 			},
 		))
 		if err != nil {
-			a.Logger.Error(
+			socket.logger.Error(
 				socket.ctx,
 				"failed to send stdin exec response",
 				slog.Error(err),
@@ -382,7 +384,7 @@ func (a *HttpApi) StdinExec(socket *masterWebSocket, msg *payload.WebSocketPaylo
 		},
 	))
 	if err != nil {
-		a.Logger.Error(
+		socket.logger.Error(
 			socket.ctx,
 			"failed to send stdin exec response",
 			slog.Error(err),
