@@ -356,6 +356,8 @@ func (a *HttpApi) StdinExec(socket *masterWebSocket, msg *payload.WebSocketPaylo
 		return
 	}
 
+	socket.logger.Info(socket.ctx, "received command stdin", slog.F("command_id", commandID))
+
 	_, err = command.(*core.ActiveCommand).Stdin.Write([]byte(mes.Input))
 	if err != nil {
 		socket.logger.Error(socket.ctx, "failed to write stdin to command", slog.Error(err))

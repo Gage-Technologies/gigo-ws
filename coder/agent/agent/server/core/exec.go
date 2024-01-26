@@ -24,7 +24,7 @@ pip install -r requirements.txt &> /dev/null
 type ActiveCommand struct {
 	Ctx          context.Context
 	Cancel       context.CancelFunc
-	Stdin        io.WriteCloser
+	Stdin        io.Writer
 	ResponseChan chan payload.ExecResponsePayload
 }
 
@@ -78,51 +78,51 @@ func execGolang(ctx context.Context, code string, stdout chan string, stderr cha
 // updateOutput updates the output slice with new data.
 // It either appends a new line or updates the last partial line.
 func updateOutput(output *[]payload.OutputRow, lastLineIndex **int, newData string) {
-    if newData == "" {
-        // No new data to process
-        return
-    }
+	if newData == "" {
+		// No new data to process
+		return
+	}
 
-    // Function to append new data as a new line
-    appendNewLine := func(data string) {
-        *output = append(*output, payload.OutputRow{
-            Content:   data,
-            Timestamp: time.Now().UnixNano(),
-        })
-        lastIndex := len(*output) - 1
-        *lastLineIndex = &lastIndex
-    }
+	// Function to append new data as a new line
+	appendNewLine := func(data string) {
+		*output = append(*output, payload.OutputRow{
+			Content:   data,
+			Timestamp: time.Now().UnixNano(),
+		})
+		lastIndex := len(*output) - 1
+		*lastLineIndex = &lastIndex
+	}
 
-    // Process each character in newData
-    for i := 0; i < len(newData); i++ {
-        switch newData[i] {
-        case '\r':
-            // Carriage return - reset the current line or start a new line
-            if *lastLineIndex != nil {
-                (*output)[**lastLineIndex].Content = ""
-            } else {
-                appendNewLine("")
-            }
+	// Process each character in newData
+	for i := 0; i < len(newData); i++ {
+		switch newData[i] {
+		case '\r':
+			// Carriage return - reset the current line or start a new line
+			if *lastLineIndex != nil {
+				(*output)[**lastLineIndex].Content = ""
+			} else {
+				appendNewLine("")
+			}
 
-            // Check if the next character is a newline
-            if i+1 < len(newData) && newData[i+1] == '\n' {
-                i++ // Skip the newline character
-                *lastLineIndex = nil // Start a new line after the newline
-            }
-        case '\n':
-            // Newline character - start a new line
-            *lastLineIndex = nil
-        default:
-            // Regular character - add to the current line or start a new one
-            if *lastLineIndex != nil {
-                // Append to the existing line
-                (*output)[**lastLineIndex].Content += string(newData[i])
-            } else {
-                // Start a new line
-                appendNewLine(string(newData[i]))
-            }
-        }
-    }
+			// Check if the next character is a newline
+			if i+1 < len(newData) && newData[i+1] == '\n' {
+				i++                  // Skip the newline character
+				*lastLineIndex = nil // Start a new line after the newline
+			}
+		case '\n':
+			// Newline character - start a new line
+			*lastLineIndex = nil
+		default:
+			// Regular character - add to the current line or start a new one
+			if *lastLineIndex != nil {
+				// Append to the existing line
+				(*output)[**lastLineIndex].Content += string(newData[i])
+			} else {
+				// Start a new line
+				appendNewLine(string(newData[i]))
+			}
+		}
+	}
 }
 
 func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, logger slog.Logger) (*ActiveCommand, error) {
@@ -162,6 +162,9 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 		return nil, fmt.Errorf("unsupported programming language: %s", language.String())
 	}
 
+	// wrap stdin in a multiwriter that will also forward to the stdout channel
+	stdinMultiWriter := io.MultiWriter(stdin, NewStdoutForwardWriter(stdOut))
+
 	// execute loop in go routine to read from the stdout and stderr channels
 	// and pipe the content back to the payload channel
 	go func() {
@@ -190,7 +193,7 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 	return &ActiveCommand{
 		Ctx:          commandCtx,
 		Cancel:       commandCancel,
-		Stdin:        stdin,
+		Stdin:        stdinMultiWriter,
 		ResponseChan: payloadChan,
 	}, nil
 }
