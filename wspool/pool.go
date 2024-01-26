@@ -19,6 +19,7 @@ import (
 	"github.com/gage-technologies/gigo-lib/db/models"
 	"github.com/gage-technologies/gigo-lib/logging"
 	"github.com/gage-technologies/gigo-lib/storage"
+	"github.com/sourcegraph/conc/pool"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -249,62 +250,65 @@ func (p *WorkspacePool) resolveStateDeltas() {
 
 			p.Logger.Debugf("provisioning %d Workspaces for subpool %d", neededCount, subpool.Container)
 
+			// create worker pool to launch workspace creations concurrently
+			wg := pool.New().WithMaxGoroutines(10)
+
 			// create the Workspaces
 			for i := 0; i < neededCount; i++ {
-				id := p.SfNode.Generate().Int64()
-				pooledWs := models.CreateWorkspacePool(
-					id,
-					subpool.Container,
-					models.WorkspacePoolStateAvailable,
-					subpool.Memory,
-					subpool.CPU,
-					subpool.VolumeSize,
-					"",
-					subpool.StorageClass,
-					nil,
-				)
+				wg.Go(func() {
+					id := p.SfNode.Generate().Int64()
+					pooledWs := models.CreateWorkspacePool(
+						id,
+						subpool.Container,
+						models.WorkspacePoolStateAvailable,
+						subpool.Memory,
+						subpool.CPU,
+						subpool.VolumeSize,
+						"",
+						subpool.StorageClass,
+						nil,
+					)
 
-				p.Logger.Debugf("provisioning wspool Workspace: %d", pooledWs.ID)
-				agent, _, err := p.provisionWorkspace(context.TODO(), pooledWs)
-				if err != nil {
-					p.Logger.Errorf("error provisioning Workspace pool %d: %v", pooledWs.ID, err)
-					return
-				}
-
-				pooledWs.Secret = agent.Token
-				pooledWs.AgentID = agent.ID
-				statements, err := pooledWs.ToSqlNative()
-				if err != nil {
-					p.Logger.Errorf("error converting Workspace pool to SQL: %v", err)
-					continue
-				}
-
-				tx, err := p.DB.DB.BeginTx(context.Background(), nil)
-				if err != nil {
-					p.Logger.Error("error beginning transaction: %v", err)
-					return
-				}
-
-				c := false
-				for _, statement := range statements {
-					_, err = tx.Exec(statement.Statement, statement.Values...)
+					p.Logger.Debugf("provisioning wspool Workspace: %d", pooledWs.ID)
+					agent, _, err := p.provisionWorkspace(context.TODO(), pooledWs)
 					if err != nil {
-						_ = tx.Rollback()
-						p.Logger.Errorf("error inserting Workspace pool: %v", err)
-						c = true
-						break
+						p.Logger.Errorf("error provisioning Workspace pool %d: %v", pooledWs.ID, err)
+						return
 					}
-				}
-				if c {
-					continue
-				}
 
-				err = tx.Commit()
-				if err != nil {
-					p.Logger.Error("error committing transaction: %v", err)
-					return
-				}
+					pooledWs.Secret = agent.Token
+					pooledWs.AgentID = agent.ID
+					statements, err := pooledWs.ToSqlNative()
+					if err != nil {
+						p.Logger.Errorf("error converting Workspace pool to SQL: %v", err)
+						return
+					}
+
+					tx, err := p.DB.DB.BeginTx(context.Background(), nil)
+					if err != nil {
+						p.Logger.Error("error beginning transaction: %v", err)
+						return
+					}
+					defer tx.Rollback()
+
+					for _, statement := range statements {
+						_, err = tx.Exec(statement.Statement, statement.Values...)
+						if err != nil {
+							p.Logger.Errorf("error inserting Workspace pool: %v", err)
+							return
+						}
+					}
+
+					err = tx.Commit()
+					if err != nil {
+						p.Logger.Error("error committing transaction: %v", err)
+						return
+					}
+				})
 			}
+
+			// wait for all of the creations to complete
+			wg.Wait()
 		}
 
 		// if the count of available Workspaces is greater than the pool size, we need to destroy some
