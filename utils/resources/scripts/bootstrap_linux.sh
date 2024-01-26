@@ -20,13 +20,13 @@ while :; do
 	# will have available.
 	status=""
 	if command -v curl >/dev/null 2>&1; then
-		curl -fsSL -H "Gigo-Agent-Token: ${GIGO_AGENT_TOKEN}" -H "Gigo-Workspace-Id: ${GIGO_WORKSPACE_ID}" "${BINARY_URL}" -o "${BINARY_NAME}" && break
+		curl -fsSL --connect-timeout 1 -H "Gigo-Agent-Token: ${GIGO_AGENT_TOKEN}" -H "Gigo-Workspace-Id: ${GIGO_WORKSPACE_ID}" "${BINARY_URL}" -o "${BINARY_NAME}" && break
 		status=$?
 	elif command -v wget >/dev/null 2>&1; then
-		wget -q --header="Gigo-Agent-Token: ${GIGO_AGENT_TOKEN}" --header="Gigo-Workspace-Id: ${GIGO_WORKSPACE_ID}" "${BINARY_URL}" -O "${BINARY_NAME}" && break
+		wget -q --connect-timeout 1 --header="Gigo-Agent-Token: ${GIGO_AGENT_TOKEN}" --header="Gigo-Workspace-Id: ${GIGO_WORKSPACE_ID}" "${BINARY_URL}" -O "${BINARY_NAME}" && break
 		status=$?
 	elif command -v busybox >/dev/null 2>&1; then
-		busybox wget -q --header="Gigo-Agent-Token: ${GIGO_AGENT_TOKEN}" --header="Gigo-Workspace-Id: ${GIGO_WORKSPACE_ID}" "${BINARY_URL}" -O "${BINARY_NAME}" && break
+		busybox wget -q --connect-timeout 1 --header="Gigo-Agent-Token: ${GIGO_AGENT_TOKEN}" --header="Gigo-Workspace-Id: ${GIGO_WORKSPACE_ID}" "${BINARY_URL}" -O "${BINARY_NAME}" && break
 		status=$?
 	else
 		echo "error: no download tool found, please install curl, wget or busybox wget"
