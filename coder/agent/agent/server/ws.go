@@ -168,9 +168,9 @@ func (a *HttpApi) masterWebSocketLoop(socket *masterWebSocket) {
 		socket.pool.Wait()
 	}()
 
-	// create a ticker to send a ping to the client every 30 seconds
+	// create a ticker to send a ping to the client every 5 seconds
 	// to ensure the connection is still alive
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 
 	// create a channel to receive messages from the client
 	// NOTE: we use a buffered channel here to prevent the goroutine
