@@ -42,7 +42,7 @@ const (
 )
 
 type Client interface {
-	InitializeWorkspaceAgent(ctx context.Context, isVnc bool) (agentsdk.WorkspaceAgentMetadata, error)
+	InitializeWorkspaceAgent(ctx context.Context, isVnc bool) (*agentsdk.WorkspaceAgentMetadata, error)
 	ListenWorkspaceAgent(ctx context.Context) (net.Conn, error)
 	PostWorkspaceAgentState(ctx context.Context, state models.WorkspaceAgentState) error
 	PostWorkspaceAgentVersion(ctx context.Context, version string) error
@@ -160,14 +160,9 @@ func (a *agent) runLoop(ctx context.Context) {
 }
 
 func (a *agent) run(ctx context.Context) error {
-	err := a.client.PostWorkspaceAgentVersion(ctx, buildinfo.Version().Version)
-	if err != nil {
-		return xerrors.Errorf("update workspace agent version: %w", err)
-	}
-
 	// detect if the vnc file exists to determine if we are using vnc or not
 	isVnc := false
-	_, err = os.Stat("/gigo/vnc")
+	_, err := os.Stat("/gigo/vnc")
 	if err == nil {
 		isVnc = true
 	}
@@ -175,7 +170,7 @@ func (a *agent) run(ctx context.Context) error {
 	var metadata agentsdk.WorkspaceAgentMetadata
 
 	for {
-		metadata, err = a.client.InitializeWorkspaceAgent(ctx, isVnc)
+		m, err := a.client.InitializeWorkspaceAgent(ctx, isVnc)
 		if err != nil {
 			// mark init failure since this is part of the remote
 			// initialization state on workspace initialization
@@ -183,15 +178,32 @@ func (a *agent) run(ctx context.Context) error {
 			return xerrors.Errorf("fetch metadata: %w", err)
 		}
 
-		if metadata.WorkspaceState == models.WorkspaceFailed {
+		// a nil instance means that the agent was not found
+		// we should wait for the agent to get linked in the database
+		// we retry forever because pooled workspaces can take a long
+		// time for this to become true
+		if m == nil {
+			time.Sleep(time.Second)
+			continue
+		}
+
+		if m.WorkspaceState == models.WorkspaceFailed {
 			ctx.Done()
 			return nil
 		}
 
-		if !metadata.Unassigned {
+		if !m.Unassigned {
+			metadata = *m
 			a.logger.Info(ctx, "fetched metadata")
 			break
 		}
+
+		time.Sleep(time.Second)
+	}
+
+	err = a.client.PostWorkspaceAgentVersion(ctx, buildinfo.Version().Version)
+	if err != nil {
+		return xerrors.Errorf("update workspace agent version: %w", err)
 	}
 
 	oldMetadata := a.metadata.Swap(metadata)
