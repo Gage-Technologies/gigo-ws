@@ -17,6 +17,8 @@ const (
 	WebSocketMessageTypeCancelExecResponse
 	WebSocketMessageTypeStdinExecRequest
 	WebSocketMessageTypeStdinExecResponse
+	WebSocketMessageTypeLaunchLspRequest
+	WebSocketMessageTypeLaunchLspResponse
 )
 
 func (t WebSocketMessageType) String() string {
@@ -32,6 +34,8 @@ func (t WebSocketMessageType) String() string {
 		"WebSocketMessageTypeCancelExecResponse",
 		"WebSocketMessageTypeStdinExecRequest",
 		"WebSocketMessageTypeStdinExecResponse",
+		"WebSocketMessageTypeLaunchLspResponse",
+		"WebSocketMessageTypeLaunchLspRequest",
 	}[t]
 }
 
@@ -59,7 +63,7 @@ type WebSocketPayload[T any] struct {
 	// Type
 	//
 	//  The type of payload.
-	Type WebSocketMessageType `json:"type" validate:"required,gte=0,lte=10"`
+	Type WebSocketMessageType `json:"type" validate:"required,gte=0,lte=12"`
 
 	// Origin
 	//

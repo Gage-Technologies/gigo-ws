@@ -7,6 +7,7 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
+	"gigo-ws/coder/agent/agent/lsp"
 	utils2 "gigo-ws/coder/agent/agent/server/utils"
 	"github.com/go-chi/chi"
 	"io"
@@ -76,6 +77,7 @@ type HttpApi struct {
 	validator         *validator.Validate
 	activeConnections *atomic.Int64
 	server            *http.Server
+	lsp               *atomic.Pointer[lsp.LspServer]
 }
 
 // NewHttpApi
@@ -99,6 +101,7 @@ func NewHttpApi(params HttpApiParams) (*HttpApi, error) {
 		router:            router,
 		validator:         validator.New(),
 		activeConnections: &atomic.Int64{},
+		lsp:               &atomic.Pointer[lsp.LspServer]{},
 	}
 
 	// link global middleware
@@ -108,7 +111,7 @@ func NewHttpApi(params HttpApiParams) (*HttpApi, error) {
 		// configure CORS handler
 		cors.Handler(cors.Options{
 			// TODO: tighten this up for production
-			//AllowedOrigins: "*",
+			// AllowedOrigins: "*",
 			AllowOriginFunc:  func(r *http.Request, origin string) bool { return true },
 			AllowedMethods:   []string{"GET"},
 			AllowedHeaders:   []string{"*"},
@@ -156,7 +159,11 @@ func (a *HttpApi) Start(ctx context.Context) error {
 }
 
 func (a *HttpApi) Shutdown(ctx context.Context) error {
-	return a.server.Shutdown(ctx)
+	err := a.server.Shutdown(ctx)
+	if l := a.lsp.Load(); l != nil {
+		l.Close()
+	}
+	return err
 }
 
 func (a *HttpApi) linkApi() {

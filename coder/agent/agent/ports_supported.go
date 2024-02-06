@@ -60,7 +60,7 @@ func getListeningPorts(ctx context.Context, logger slog.Logger) (ActivePortState
 		}
 	}()
 
-	logger.Debug(ctx, "checking for listening ports")
+	// logger.Debug(ctx, "checking for listening ports")
 	tabs, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
 		return s.State == netstat.Listen
 	})
@@ -68,39 +68,39 @@ func getListeningPorts(ctx context.Context, logger slog.Logger) (ActivePortState
 		return nil, xerrors.Errorf("scan listening ports: %w", err)
 	}
 
-	logger.Debug(ctx, "listening ports detected", slog.F("ports", tabs))
+	// logger.Debug(ctx, "listening ports detected", slog.F("ports", tabs))
 
 	ports := make(ActivePortState)
 	for _, tab := range tabs {
 		if tab.LocalAddr == nil || tab.LocalAddr.Port < agentsdk.MinimumListeningPort {
-			logger.Debug(ctx, "ignoring port because it was too low", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
+			// logger.Debug(ctx, "ignoring port because it was too low", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
 			continue
 		}
 
 		// Don't include ports that we've already seen. This can happen on
 		// Windows, and maybe on Linux if you're using a shared listener socket.
 		if _, ok := ports[tab.LocalAddr.Port]; ok {
-			logger.Debug(ctx, "ignoring duplicate port", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
+			// logger.Debug(ctx, "ignoring duplicate port", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
 			continue
 		}
 
 		// skip blacklisted ports
 		if _, ok := agentsdk.IgnoredListeningPorts[tab.LocalAddr.Port]; ok {
-			logger.Debug(ctx, "ignoring blacklisted port", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
+			// logger.Debug(ctx, "ignoring blacklisted port", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
 			continue
 		}
 
-		logger.Debug(ctx, "processing new port", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
+		// logger.Debug(ctx, "processing new port", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
 
-		logger.Debug(ctx, "checking ssl", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
+		// logger.Debug(ctx, "checking ssl", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
 		// check if the port is ssl
 		isSsl := isSSL(tab.LocalAddr.Port)
 
-		logger.Debug(ctx, "checking http", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
+		// logger.Debug(ctx, "checking http", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
 		// check if the port is http
 		isHttp := isHTTP(tab.LocalAddr.Port, isSsl)
 
-		logger.Debug(ctx, "adding new port", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
+		// logger.Debug(ctx, "adding new port", slog.F("port", tab.LocalAddr.Port), slog.F("address", tab.LocalAddr.IP), slog.F("process", tab.Process))
 
 		procName := ""
 		if tab.Process != nil {

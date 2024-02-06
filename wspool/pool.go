@@ -225,7 +225,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 	p.Logger.Debug("resolving state deltas")
 
 	// create slices of Workspaces that should be provisioned and destroyed
-	//provisionSet := make([]*models.WorkspacePool, 0)
+	// provisionSet := make([]*models.WorkspacePool, 0)
 	destroySet := make([]int64, 0)
 
 	// iterate over the subpools
@@ -248,7 +248,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 			// calculate the number of Workspaces we need to provision
 			neededCount := subpool.PoolSize - availableCount
 
-			p.Logger.Debugf("provisioning %d Workspaces for subpool %d", neededCount, subpool.Container)
+			p.Logger.Debugf("provisioning %d Workspaces for subpool %s", neededCount, subpool.Container)
 
 			// create worker pool to launch workspace creations concurrently
 			wg := pool.New().WithMaxGoroutines(10)
@@ -396,7 +396,7 @@ func (p *WorkspacePool) provisionWorkspace(ctx context.Context, pool *models.Wor
 	// format module with terraform template
 	module := &models2.TerraformModule{
 		MainTF: templateBuf,
-		////////////////////////////////////// TODO ASK Sam
+		// //////////////////////////////////// TODO ASK Sam
 		ModuleID:    pool.ID,
 		Environment: p.prepEnvironmentForCreation(pool, container),
 	}
@@ -469,7 +469,7 @@ func (p *WorkspacePool) prepEnvironmentForCreation(pool *models.WorkspacePool, f
 		fmt.Sprintf("GIGO_WORKSPACE_MEM=%dG", pool.Memory),
 		fmt.Sprintf("GIGO_WORKSPACE_CONTAINER=%s", formattedContainer),
 		fmt.Sprintf("GIGO_AGENT_URL=%s", p.Config.AccessUrl),
-		///////////////////////////////////////////////////////////////////////////// TODO ASK Sam
+		// /////////////////////////////////////////////////////////////////////////// TODO ASK Sam
 		fmt.Sprintf("GIGO_WORKSPACE_ID=%d", pool.ID),
 		"GIGO_WORKSPACE_TRANSITION=start",
 	)

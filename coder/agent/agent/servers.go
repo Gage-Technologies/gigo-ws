@@ -19,7 +19,7 @@ func (a *agent) agentControlServer(ctx context.Context) {
 	apiServer, err := server2.NewHttpApi(server2.HttpApiParams{
 		NodeID:    a.id,
 		Snowflake: a.snowflakeNode,
-		Port:      agentsdk.ZitiInitConnPort,
+		Port:      agentsdk.ZitiAgentServerPort,
 		Host:      "localhost",
 		Logger:    a.logger,
 		Secret:    a.client.SessionAuth().Token,
@@ -51,7 +51,8 @@ func (a *agent) agentControlServer(ctx context.Context) {
 func (a *agent) reserveUnusedGigoPorts(ctx context.Context) {
 	// ports that are in use and should be skipped
 	used := map[int]struct{}{
-		agentsdk.ZitiInitConnPort: {},
+		agentsdk.ZitiAgentServerPort: {},
+		agentsdk.ZitiAgentLspWsPort:  {},
 	}
 
 	// create listeners on all of the reserved ports as

@@ -134,6 +134,7 @@ func (a *HttpApi) MasterWebSocket(w http.ResponseWriter, r *http.Request) {
 			payload.WebSocketMessageTypeLintRequest:       a.LintCode,
 			payload.WebSocketMessageTypeCancelExecRequest: a.CancelExec,
 			payload.WebSocketMessageTypeStdinExecRequest:  a.StdinExec,
+			payload.WebSocketMessageTypeLaunchLspRequest:  a.LaunchLsp,
 		},
 	}
 
