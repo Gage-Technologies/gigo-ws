@@ -102,6 +102,32 @@ func (a *HttpApi) LaunchLsp(socket *masterWebSocket, msg *payload.WebSocketPaylo
 
 	socket.logger.Info(socket.ctx, "launching lsp", slog.F("lang", mes.Lang))
 
+	err = lsp.PrepLsp(mes.Lang, socket.ctx, mes.Content)
+	if err != nil {
+		socket.logger.Error(
+			socket.ctx,
+			"failed to prep lsp",
+			slog.Error(err),
+		)
+		// return the error payload to the client
+		err := wsjson.Write(socket.ctx, socket.ws, payload.PrepPayload(
+			msg.SequenceID,
+			payload.WebSocketMessageTypeGenericError,
+			payload.GenericErrorPayload{
+				Error: DefaultErrorMessage,
+				Code:  payload.WebSocketErrorCodeServerError,
+			},
+		))
+		if err != nil {
+			socket.logger.Error(
+				socket.ctx,
+				"failed to send error payload",
+				slog.Error(err),
+			)
+		}
+		return
+	}
+
 	// launch a new lsp and store it in the server
 	a.lsp.Store(lsp.NewLspServer(context.TODO(), mes.Lang, a.Logger))
 
