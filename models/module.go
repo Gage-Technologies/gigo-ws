@@ -31,7 +31,7 @@ type TerraformModule struct {
 //	 If the module does not exist for the passed workspace id a nil module is returned
 func LoadModule(storageEngine storage.Storage, workspaceId int64) (*TerraformModule, error) {
 	// read module from the storage engine
-	buf, err := storageEngine.GetFile(fmt.Sprintf("modules/%d", workspaceId))
+	buf, _, err := storageEngine.GetFile(fmt.Sprintf("modules/%d", workspaceId))
 	if err != nil {
 		return nil, fmt.Errorf("failed to save module to storage engine: %v", err)
 	}

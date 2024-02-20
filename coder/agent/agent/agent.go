@@ -439,11 +439,14 @@ func (a *agent) createZitiAgent(ctx context.Context) error {
 		}
 	} else {
 		var err error
-		var identity *ziti.Config
-		a.zitiAgent, identity, err = zitimesh.NewAgentFromToken(ctx, metadata.ZitiID, metadata.ZitiToken, a.logger)
+		var identity ziti.Config
+		err = json.Unmarshal([]byte(metadata.ZitiToken), &identity)
 		if err != nil {
-			// TODO: remove this - super insecure - only for dev env testing
-			a.logger.Debug(ctx, "ziti enrollment token", slog.F("token", metadata.ZitiToken), slog.F("id", metadata.ZitiID))
+			return xerrors.Errorf("failed to unmarshal ziti token: %w", err)
+		}
+
+		a.zitiAgent, err = zitimesh.NewAgent(ctx, metadata.ZitiID, &identity, a.logger)
+		if err != nil {
 			return xerrors.Errorf("failed to create ziti agent: %w", err)
 		}
 
@@ -462,7 +465,7 @@ func (a *agent) createZitiAgent(ctx context.Context) error {
 	return nil
 }
 
-func (a *agent) init(ctx context.Context) {
+func (a *agent) initSshServer(ctx context.Context) {
 	a.logger.Info(ctx, "generating host key")
 	// Clients' should ignore the host key when connecting.
 	// The agent needs to authenticate with coderd to SSH,
@@ -579,7 +582,11 @@ func (a *agent) init(ctx context.Context) {
 			},
 		},
 	}
+}
 
+func (a *agent) init(ctx context.Context) {
+	// TODO: maybe add native ssh connection like coder?
+	// go a.initSshServer(ctx)
 	go a.runLoop(ctx)
 }
 
@@ -607,7 +614,9 @@ func (a *agent) Close() error {
 	if a.zitiAgent != nil {
 		a.zitiAgent.Close()
 	}
-	_ = a.sshServer.Close()
+	if a.sshServer != nil {
+		_ = a.sshServer.Close()
+	}
 	a.connCloseWait.Wait()
 	return nil
 }

@@ -963,7 +963,7 @@ func (a *agent) reportStateFailure(ctx context.Context, state models.WorkspaceIn
 	// execute api call to gigo system on a retry
 	// with up to 3 attempts
 	attempts := 0
-	for r := retry.New(time.Second, time.Second*5); r.Wait(ctx); {
+	for r := retry.New(time.Millisecond*50, time.Second*5); r.Wait(ctx); {
 		err := a.client.WorkspaceInitializationFailure(ctx, failure)
 		if err != nil {
 			// exit if we have failed 3 or more times
@@ -986,6 +986,7 @@ func (a *agent) reportStateFailure(ctx context.Context, state models.WorkspaceIn
 func (a *agent) reportStateCompleted(ctx context.Context, state models.WorkspaceInitState) {
 	a.logger.Debug(ctx, "completed workspace init state", slog.F("state", state))
 
+	startTime := time.Now()
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		a.logger.Error(ctx, "failed to get home dir for last init", slog.Error(err))
@@ -1005,12 +1006,13 @@ func (a *agent) reportStateCompleted(ctx context.Context, state models.Workspace
 		a.logger.Error(ctx, "failed to write last init to file", slog.Error(err))
 		return
 	}
-	a.logger.Debug(ctx, "wrote state to last state file", slog.F("state", state))
+	a.logger.Debug(ctx, "wrote state to last state file", slog.F("state", state), slog.F("exec_time", time.Since(startTime)))
 
 	// execute api call to gigo system on a retry
 	// with up to 3 attempts
 	attempts := 0
-	for r := retry.New(time.Second, time.Second*5); r.Wait(ctx); {
+	for r := retry.New(time.Millisecond*50, time.Second*5); r.Wait(ctx); {
+		startTime := time.Now()
 		err := a.client.WorkspaceInitializationStepCompleted(ctx, state)
 		if err != nil {
 			// exit if we have failed 3 or more times
@@ -1020,6 +1022,7 @@ func (a *agent) reportStateCompleted(ctx context.Context, state models.Workspace
 			attempts++
 			a.logger.Error(ctx, "failed to report init state completed", slog.Error(err))
 		}
+		a.logger.Debug(ctx, "reported init step completion", slog.F("state", state), slog.F("exec_time", time.Since(startTime)))
 		return
 	}
 }
@@ -1160,12 +1163,14 @@ func (a *agent) runBootstrap(ctx context.Context) error {
 		a.reportStateCompleted(ctx, models.WorkspaceInitVSCodeExtensionInstall)
 	}
 
-	res, err := handleUserExecutions(ctx, metadata, metadata.LastInitState)
-	if err != nil || (res != nil && res.ExitCode != 0) {
-		a.reportStateFailure(ctx, models.WorkspaceInitShellExecutions, err, res)
-		return err
+	if len(metadata.GigoConfig.Exec) > 0 {
+		res, err := handleUserExecutions(ctx, metadata, metadata.LastInitState)
+		if err != nil || (res != nil && res.ExitCode != 0) {
+			a.reportStateFailure(ctx, models.WorkspaceInitShellExecutions, err, res)
+			return err
+		}
+		a.reportStateCompleted(ctx, models.WorkspaceInitShellExecutions)
 	}
-	a.reportStateCompleted(ctx, models.WorkspaceInitShellExecutions)
 
 	file.Seek(0, 0)
 

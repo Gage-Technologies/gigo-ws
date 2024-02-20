@@ -72,7 +72,8 @@ func (b *ProvisionerBackendFS) ToTerraform(bucketPath string) (string, []string)
 //	Returns the provisioner backend's current state file
 //	for the passed bucket path
 func (b *ProvisionerBackendFS) GetStatefile(bucketPath string) (io.ReadCloser, error) {
-	return b.storageEngine.GetFile(bucketPath)
+	reader, _, err := b.storageEngine.GetFile(bucketPath)
+	return reader, err
 }
 
 // RemoveStatefile
