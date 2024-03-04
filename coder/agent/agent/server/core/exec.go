@@ -21,6 +21,34 @@ pipreqs --force . &> /dev/null
 pip install -r requirements.txt &> /dev/null
 `
 
+const jsPrepScript = `#!/bin/bash
+npm init -y
+`
+
+const cppPrepScript = `#!/bin/bash
+g++ -o main main.cpp
+chmod +x main
+`
+
+const tsPrepScript = `#!/bin/bash
+npm init -y
+tsc main.ts
+`
+
+const rustPrePrepScript = `#!/bin/bash
+cargo new rsrun
+cd rsrun/src
+`
+
+const rustPrepScript = `#!/bin/bash
+cargo build
+`
+
+const csPrePrepScript = `#!/bin/bash
+dotnet new console --name csrun
+mv csrun/Program.cs csrun/main.cs
+`
+
 type ActiveCommand struct {
 	Ctx          context.Context
 	Cancel       context.CancelFunc
@@ -47,6 +75,138 @@ func execPython(ctx context.Context, code string, stdout chan string, stderr cha
 	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/pyrun", "bash", "-c", pythonPrepScript)
 	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/pyrun", stdout,
 		stderr, true, "/opt/python-bytes/default/bin/python", "-u", "main.py")
+}
+
+func execJavascript(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/jsrun"); !ok {
+		err := os.MkdirAll("/tmp/jsrun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	// write the js file
+	err := os.WriteFile("/tmp/jsrun/index.js", []byte(code), 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to write file: %w", err)
+	}
+
+	// execute js code
+	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/jsrun", "bash", "-c", jsPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/jsrun", stdout,
+		stderr, true, "node", "", "index.js")
+}
+
+func execCpp(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/cpprun"); !ok {
+		err := os.MkdirAll("/tmp/cpprun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	// write the js file
+	err := os.WriteFile("/tmp/cpprun/main.cpp", []byte(code), 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to write file: %w", err)
+	}
+
+	// execute js code
+	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/jsrun", "bash", "-c", cppPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/cpprun", stdout,
+		stderr, true, "", "", "./main")
+}
+
+func execTypescript(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/tsrun"); !ok {
+		err := os.MkdirAll("/tmp/tsrun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	// write the js file
+	err := os.WriteFile("/tmp/tsrun/main.ts", []byte(code), 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to write file: %w", err)
+	}
+
+	// execute js code
+	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/tsrun", "bash", "-c", tsPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/tsrun", stdout,
+		stderr, true, "node", "", "main.js")
+}
+
+func execRust(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/rsrun"); !ok {
+		_, err := utils.ExecuteCommand(ctx, nil, "/tmp/rsrun", "bash", "-c", rustPrePrepScript)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	// write the js file
+	err := os.WriteFile("/tmp/rsrun/src/main.rs", []byte(code), 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to write file: %w", err)
+	}
+
+	// execute js code
+	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/tsrun", "bash", "-c", rustPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/tsrun", stdout,
+		stderr, true, "cargo", "run", "")
+}
+
+func execCSharp(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/csrun"); !ok {
+		_, err := utils.ExecuteCommand(ctx, nil, "/tmp", "bash", "-c", csPrePrepScript)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+	// write the js file
+	err := os.WriteFile("/tmp/csrun/main.cs", []byte(code), 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to write file: %w", err)
+	}
+
+	// execute js code
+	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/csrun", stdout,
+		stderr, true, "dotnet", "run", "")
+}
+
+func execJava(ctx context.Context, code string, stdout chan string, stderr chan string, filename *string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/jrun"); !ok {
+		err := os.MkdirAll("/tmp/jrun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	var nameStr string = "main"
+
+	if filename != nil {
+		nameStr = *filename
+	}
+	// write the js file
+	err := os.WriteFile(fmt.Sprintf("/tmp/jrun/%v.java", nameStr), []byte(code), 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to write file: %w", err)
+	}
+
+	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/jrun", "bash", "-c", fmt.Sprintf(`#!/bin/bash
+		javac %v.java
+	`, nameStr))
+
+	// execute js code
+	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/csrun", stdout,
+		stderr, true, "java", "", fmt.Sprintf("%v", nameStr))
 }
 
 func execGolang(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
@@ -125,7 +285,7 @@ func updateOutput(output *[]payload.OutputRow, lastLineIndex **int, newData stri
 	}
 }
 
-func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, logger slog.Logger) (*ActiveCommand, error) {
+func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, fileName *string, logger slog.Logger) (*ActiveCommand, error) {
 	payloadChan := make(chan payload.ExecResponsePayload, 100)
 	stdOut := make(chan string)
 	stdErr := make(chan string)
@@ -153,6 +313,44 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 		}
 	case models.Go:
 		stdin, completionChan, err = execGolang(commandCtx, codeString, stdOut, stdErr)
+		if err != nil {
+			commandCancel()
+			return nil, fmt.Errorf("failed to exec golang: %v", err)
+		}
+	case models.Cpp:
+		stdin, completionChan, err = execCpp(commandCtx, codeString, stdOut, stdErr)
+		if err != nil {
+			commandCancel()
+			return nil, fmt.Errorf("failed to exec cpp: %v", err)
+		}
+	case models.Csharp:
+		stdin, completionChan, err = execCSharp(commandCtx, codeString, stdOut, stdErr)
+		if err != nil {
+			commandCancel()
+			return nil, fmt.Errorf("failed to exec C#: %v", err)
+		}
+	case models.JavaScript:
+		stdin, completionChan, err = execJavascript(commandCtx, codeString, stdOut, stdErr)
+		if err != nil {
+			commandCancel()
+			return nil, fmt.Errorf("failed to exec javascript: %v", err)
+		}
+
+	case models.Java:
+		stdin, completionChan, err = execJava(commandCtx, codeString, stdOut, stdErr, fileName)
+		if err != nil {
+			commandCancel()
+			return nil, fmt.Errorf("failed to exec golang: %v", err)
+		}
+
+	case models.TypeScript:
+		stdin, completionChan, err = execTypescript(commandCtx, codeString, stdOut, stdErr)
+		if err != nil {
+			commandCancel()
+			return nil, fmt.Errorf("failed to exec golang: %v", err)
+		}
+	case models.Rust:
+		stdin, completionChan, err = execRust(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
 			commandCancel()
 			return nil, fmt.Errorf("failed to exec golang: %v", err)

@@ -16,7 +16,7 @@ import (
 )
 
 func Test_ExecCode(t *testing.T) {
-	payloadRes, err := ExecCode(context.Background(), "print('hello world')", models.Python, slog.Make(sloghuman.Sink(os.Stdout)))
+	payloadRes, err := ExecCode(context.Background(), "print('hello world')", models.Python, nil, slog.Make(sloghuman.Sink(os.Stdout)))
 	if err != nil {
 		t.Error(err)
 		return
@@ -45,7 +45,7 @@ func Test_ExecCode(t *testing.T) {
 		}
 	}
 
-	payloadRes, err = ExecCode(context.Background(), "package main\nimport \"fmt\"\n\nfunc main(){\n\tfmt.Println(\"hello world\")\n}", models.Go, slog.Make(sloghuman.Sink(os.Stdout)))
+	payloadRes, err = ExecCode(context.Background(), "package main\nimport \"fmt\"\n\nfunc main(){\n\tfmt.Println(\"hello world\")\n}", models.Go, nil, slog.Make(sloghuman.Sink(os.Stdout)))
 	if err != nil {
 		t.Error(err)
 		return
@@ -75,7 +75,7 @@ func Test_ExecCode(t *testing.T) {
 		}
 	}
 
-	payloadRes, err = ExecCode(context.Background(), "import time\nprint('started')\ntime.sleep(15)\nprint('completed')", models.Python, slog.Make(sloghuman.Sink(os.Stdout)))
+	payloadRes, err = ExecCode(context.Background(), "import time\nprint('started')\ntime.sleep(15)\nprint('completed')", models.Python, nil, slog.Make(sloghuman.Sink(os.Stdout)))
 	if err != nil {
 		t.Error(err)
 		return

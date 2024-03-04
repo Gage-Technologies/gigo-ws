@@ -89,7 +89,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 		return
 	}
 
-	activeCommand, err := core.ExecCode(socket.ctx, mes.Code, mes.Lang, socket.logger)
+	activeCommand, err := core.ExecCode(socket.ctx, mes.Code, mes.Lang, mes.FileName, socket.logger)
 	if err != nil {
 		socket.logger.Error(
 			socket.ctx,

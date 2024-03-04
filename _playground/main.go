@@ -36,7 +36,7 @@ func main() {
 }`
 
 func main() {
-	cmd, err := core.ExecCode(context.TODO(), pythonScript, models.Python, slog.Make(sloghuman.Sink(os.Stdout)))
+	cmd, err := core.ExecCode(context.TODO(), pythonScript, models.Python, nil, slog.Make(sloghuman.Sink(os.Stdout)))
 	if err != nil {
 		panic(err)
 	}
