@@ -6,6 +6,7 @@ import (
 	"gigo-ws/coder/agent/agent/server/payload"
 	"gigo-ws/utils"
 	"io"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -234,6 +235,28 @@ func execGolang(ctx context.Context, code string, stdout chan string, stderr cha
 	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/gorun", stdout,
 		stderr, true, "go", "run", "main.go")
 }
+func execBash(ctx context.Context, code string, stdout chan string, stderr chan string, workingDir *string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	var dir string
+
+	if workingDir == nil {
+		// Create a temporary directory
+		tempDir, err := ioutil.TempDir("/tmp", "bash")
+		if err != nil {
+			fmt.Println("Failed to create temporary directory:", err)
+			return nil, nil, fmt.Errorf("failed to create temp directory at: %v, err: %w", "/tmp/bash", err)
+		}
+
+		dir = tempDir
+
+		// Defer the removal of the temporary directory
+		defer os.RemoveAll(tempDir)
+	} else {
+		dir = *workingDir
+	}
+
+	return utils.ExecuteCommandStreamStdin(ctx, nil, dir, stdout,
+		stderr, true, "bash", "-c", code)
+}
 
 // updateOutput updates the output slice with new data.
 // It either appends a new line or updates the last partial line.
@@ -351,6 +374,12 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 		}
 	case models.Rust:
 		stdin, completionChan, err = execRust(commandCtx, codeString, stdOut, stdErr)
+		if err != nil {
+			commandCancel()
+			return nil, fmt.Errorf("failed to exec golang: %v", err)
+		}
+	case models.Bash:
+		stdin, completionChan, err = execBash(commandCtx, codeString, stdOut, stdErr, fileName)
 		if err != nil {
 			commandCancel()
 			return nil, fmt.Errorf("failed to exec golang: %v", err)
