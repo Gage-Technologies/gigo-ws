@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"gigo-ws/coder/agent/agent/server/payload"
 	"gigo-ws/utils"
@@ -56,11 +57,16 @@ type ActiveCommand struct {
 
 func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
-	if ok, _ := utils2.PathExists("/tmp/pyrun"); !ok {
-		err := os.MkdirAll("/tmp/pyrun", 0755)
+	if ok, _ := utils2.PathExists("/tmp/pyrun"); ok {
+		err := os.RemoveAll("/tmp/pyrun")
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+			return nil, nil, fmt.Errorf("failed to remove directory: %w", err)
 		}
+	}
+
+	err := os.MkdirAll("/tmp/pyrun", 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	executeFile := new(ExecFiles)
@@ -85,11 +91,16 @@ func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string
 
 func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
-	if ok, _ := utils2.PathExists("/tmp/jsrun"); !ok {
-		err := os.MkdirAll("/tmp/jsrun", 0755)
+	if ok, _ := utils2.PathExists("/tmp/jsrun"); ok {
+		err := os.RemoveAll("/tmp/jsrun")
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+			return nil, nil, fmt.Errorf("failed to remove directory: %w", err)
 		}
+	}
+
+	err := os.MkdirAll("/tmp/jsrun", 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	executeFile := new(ExecFiles)
@@ -114,11 +125,16 @@ func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan st
 
 func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
-	if ok, _ := utils2.PathExists("/tmp/cpprun"); !ok {
-		err := os.MkdirAll("/tmp/cpprun", 0755)
+	if ok, _ := utils2.PathExists("/tmp/cpprun"); ok {
+		err := os.RemoveAll("/tmp/cpprun")
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+			return nil, nil, fmt.Errorf("failed to remove directory: %w", err)
 		}
+	}
+
+	err := os.MkdirAll("/tmp/cpprun", 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	executeFile := new(ExecFiles)
@@ -135,7 +151,7 @@ func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, f
 		}
 	}
 	// execute js code
-	_, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp/cpprun", "bash", "-c", fmt.Sprintf(`#!/bin/bash
+	_, err = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/cpprun", "bash", "-c", fmt.Sprintf(`#!/bin/bash
 		g++ -o main %v
 		chmod +x main
 		`, executeFile.FileName),
@@ -150,11 +166,16 @@ func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, f
 
 func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
-	if ok, _ := utils2.PathExists("/tmp/tsrun"); !ok {
-		err := os.MkdirAll("/tmp/tsrun", 0755)
+	if ok, _ := utils2.PathExists("/tmp/tsrun"); ok {
+		err := os.RemoveAll("/tmp/tsrun")
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+			return nil, nil, fmt.Errorf("failed to remove directory: %w", err)
 		}
+	}
+
+	err := os.MkdirAll("/tmp/tsrun", 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	executeFile := new(ExecFiles)
@@ -184,17 +205,20 @@ func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan st
 }
 
 func execRustFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
-	fmt.Println("env: ", os.Environ())
-
 	// ensure the parent directory exists
-	if ok, _ := utils2.PathExists("/tmp/rsrun"); !ok {
-		c, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "cargo", "new", "rsrun")
+	if ok, _ := utils2.PathExists("/tmp/rsrun"); ok {
+		err := os.RemoveAll("/tmp/rsrun")
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+			return nil, nil, fmt.Errorf("failed to remove directory: %w", err)
 		}
-		b, _ := json.Marshal(c)
-		fmt.Println("prep: ", string(b))
 	}
+
+	c, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "cargo", "new", "rsrun")
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+	}
+	b, _ := json.Marshal(c)
+	fmt.Println("prep: ", string(b))
 
 	for _, k := range files {
 		// write the python file
@@ -212,14 +236,19 @@ func execRustFiles(ctx context.Context, stdout chan string, stderr chan string, 
 
 func execCSharpFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
-	if ok, _ := utils2.PathExists("/tmp/csrun"); !ok {
-		_, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "bash", "-c", `#!/bin/bash
+	if ok, _ := utils2.PathExists("/tmp/csrun"); ok {
+		err := os.RemoveAll("/tmp/csrun")
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to remove directory: %w", err)
+		}
+	}
+
+	_, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "bash", "-c", `#!/bin/bash
 			dotnet new console --name csrun
 			`,
-		)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
-		}
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	for _, k := range files {
@@ -237,11 +266,16 @@ func execCSharpFiles(ctx context.Context, stdout chan string, stderr chan string
 
 func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
-	if ok, _ := utils2.PathExists("/tmp/jrun"); !ok {
-		err := os.MkdirAll("/tmp/jrun", 0755)
+	if ok, _ := utils2.PathExists("/tmp/jrun"); ok {
+		err := os.RemoveAll("/tmp/jrun")
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+			return nil, nil, fmt.Errorf("failed to remove directory: %w", err)
 		}
+	}
+
+	err := os.MkdirAll("/tmp/jrun", 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	executeFile := new(ExecFiles)
@@ -272,11 +306,16 @@ func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, 
 
 func execGolangFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
-	if ok, _ := utils2.PathExists("/tmp/gorun"); !ok {
-		err := os.MkdirAll("/tmp/gorun", 0755)
+	if ok, _ := utils2.PathExists("/tmp/gorun"); ok {
+		err := os.RemoveAll("/tmp/gorun")
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+			return nil, nil, fmt.Errorf("failed to remove directory: %w", err)
 		}
+	}
+
+	err := os.MkdirAll("/tmp/gorun", 0755)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	executeFile := new(ExecFiles)
@@ -562,7 +601,7 @@ func updateOutput(output *[]payload.OutputRow, lastLineIndex **int, newData stri
 	}
 }
 
-func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, fileName *string, filesStr string, logger slog.Logger) (*ActiveCommand, error) {
+func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, fileName *string, files []ExecFiles, logger slog.Logger) (*ActiveCommand, error) {
 	payloadChan := make(chan payload.ExecResponsePayload, 100)
 	stdOut := make(chan string)
 	stdErr := make(chan string)
@@ -594,13 +633,6 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 	}()
 
 	if codeString == "" {
-		var files []ExecFiles
-
-		// Unmarshal the JSON into the execFiles slice
-		err := json.Unmarshal([]byte(filesStr), &files)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal exec files: %v", err)
-		}
 
 		switch language {
 		case models.Python:
