@@ -23,6 +23,7 @@ type ExecRequestPayload struct {
 	Lang     models.ProgrammingLanguage `json:"lang"`
 	Code     string                     `json:"code"`
 	FileName *string                    `json:"file_name"`
+	Files    string                     `json:"exec_files"`
 }
 
 type ExecResponsePayload struct {

@@ -8,6 +8,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"cdr.dev/slog"
@@ -51,6 +53,258 @@ type ActiveCommand struct {
 	Stdin        io.Writer
 	ResponseChan chan payload.ExecResponsePayload
 }
+
+func execPythonFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/pyrun"); !ok {
+		err := os.MkdirAll("/tmp/pyrun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	executeFile := new(ExecFiles)
+
+	for _, k := range files {
+		// write the python file
+		err := os.WriteFile(fmt.Sprintf("/tmp/pyrun/%v", k.FileName), []byte(k.Code), 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write file: %w", err)
+		}
+
+		if k.Execute {
+			executeFile = &k
+		}
+	}
+
+	// execute python code
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/pyrun", "bash", "-c", pythonPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/pyrun", stdout,
+		stderr, true, "/opt/python-bytes/default/bin/python", "-u", fmt.Sprintf("%v", executeFile.FileName))
+}
+
+func execJavascriptFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/jsrun"); !ok {
+		err := os.MkdirAll("/tmp/jsrun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	executeFile := new(ExecFiles)
+
+	for _, k := range files {
+		// write the python file
+		err := os.WriteFile(fmt.Sprintf("/tmp/jsrun/%v", k.FileName), []byte(k.Code), 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write file: %w", err)
+		}
+
+		if k.Execute {
+			executeFile = &k
+		}
+	}
+
+	// execute js code
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/jsrun", "bash", "-c", jsPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/jsrun", stdout,
+		stderr, true, "node", fmt.Sprintf("%v", executeFile.FileName))
+}
+
+func execCppFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/cpprun"); !ok {
+		err := os.MkdirAll("/tmp/cpprun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	executeFile := new(ExecFiles)
+
+	for _, k := range files {
+		// write the python file
+		err := os.WriteFile(fmt.Sprintf("/tmp/cpprun/%v", k.FileName), []byte(k.Code), 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write file: %w", err)
+		}
+
+		if k.Execute {
+			executeFile = &k
+		}
+	}
+	// execute js code
+	_, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp/cpprun", "bash", "-c", fmt.Sprintf(`#!/bin/bash
+		g++ -o main %v
+		chmod +x main
+		`, executeFile.FileName),
+	)
+
+	if err != nil {
+		stdout <- err.Error()
+	}
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/cpprun", stdout,
+		stderr, true, "./main")
+}
+
+func execTypescriptFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/tsrun"); !ok {
+		err := os.MkdirAll("/tmp/tsrun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	executeFile := new(ExecFiles)
+
+	for _, k := range files {
+		// write the python file
+		err := os.WriteFile(fmt.Sprintf("/tmp/tsrun/%v", k.FileName), []byte(k.Code), 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write file: %w", err)
+		}
+
+		if k.Execute {
+			executeFile = &k
+		}
+	}
+
+	// execute js code
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/tsrun", "bash", "-c", fmt.Sprintf(`#!/bin/bash
+		npm init -y
+		tsc %v
+		`, executeFile.FileName),
+	)
+	extension := filepath.Ext(executeFile.FileName)
+	parsedName := strings.TrimSuffix(executeFile.FileName, extension)
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/tsrun", stdout,
+		stderr, true, "node", fmt.Sprintf("%v.js", parsedName))
+}
+
+func execRustFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	fmt.Println("env: ", os.Environ())
+
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/rsrun"); !ok {
+		c, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "cargo", "new", "rsrun")
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+		b, _ := json.Marshal(c)
+		fmt.Println("prep: ", string(b))
+	}
+
+	for _, k := range files {
+		// write the python file
+		err := os.WriteFile(fmt.Sprintf("/tmp/rsrun/src/%v", k.FileName), []byte(k.Code), 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write file: %w", err)
+		}
+	}
+
+	// execute js code
+	// _, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/rsrun", "bash", "-c", rustPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/rsrun", stdout,
+		stderr, true, "cargo", "run")
+}
+
+func execCSharpFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/csrun"); !ok {
+		_, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "bash", "-c", `#!/bin/bash
+			dotnet new console --name csrun
+			`,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	for _, k := range files {
+		// write the python file
+		err := os.WriteFile(fmt.Sprintf("/tmp/csrun/%v", k.FileName), []byte(k.Code), 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write file: %w", err)
+		}
+	}
+
+	// execute js code
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/csrun", stdout,
+		stderr, true, "dotnet", "run")
+}
+
+func execJavaFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/jrun"); !ok {
+		err := os.MkdirAll("/tmp/jrun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	executeFile := new(ExecFiles)
+
+	for _, k := range files {
+		// write the python file
+		err := os.WriteFile(fmt.Sprintf("/tmp/jrun/%v", k.FileName), []byte(k.Code), 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write file: %w", err)
+		}
+
+		if k.Execute {
+			executeFile = &k
+		}
+	}
+
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/jrun", "bash", "-c", fmt.Sprintf(`#!/bin/bash
+		javac %v.java
+	`, executeFile.FileName))
+
+	extension := filepath.Ext(executeFile.FileName)
+	parsedName := strings.TrimSuffix(executeFile.FileName, extension)
+
+	// execute js code
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/jrun", stdout,
+		stderr, true, "java", fmt.Sprintf("%v", parsedName))
+}
+
+func execGolangFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	// ensure the parent directory exists
+	if ok, _ := utils2.PathExists("/tmp/gorun"); !ok {
+		err := os.MkdirAll("/tmp/gorun", 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
+		}
+	}
+
+	executeFile := new(ExecFiles)
+
+	for _, k := range files {
+		// write the python file
+		err := os.WriteFile(fmt.Sprintf("/tmp/gorun/%v", k.FileName), []byte(k.Code), 0755)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write file: %w", err)
+		}
+
+		if k.Execute {
+			executeFile = &k
+		}
+	}
+
+	// conditionally initialize the go module
+	if ok, _ := utils2.PathExists("/tmp/gorun/go.mod"); !ok {
+		_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/gorun", "go", "mod", "init", "gigo-byte")
+	}
+
+	// execute go code
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/gorun", "go", "mod", "tidy")
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/gorun", stdout,
+		stderr, true, "go", "run", executeFile.FileName)
+}
+
+/////////////////////////////////////
 
 func execPython(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
@@ -308,7 +562,7 @@ func updateOutput(output *[]payload.OutputRow, lastLineIndex **int, newData stri
 	}
 }
 
-func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, fileName *string, logger slog.Logger) (*ActiveCommand, error) {
+func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, fileName *string, filesStr string, logger slog.Logger) (*ActiveCommand, error) {
 	payloadChan := make(chan payload.ExecResponsePayload, 100)
 	stdOut := make(chan string)
 	stdErr := make(chan string)
@@ -339,56 +593,113 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 		}
 	}()
 
-	switch language {
-	case models.Python:
-		stdin, completionChan, err = execPython(commandCtx, codeString, stdOut, stdErr)
+	if codeString == "" {
+		var files []ExecFiles
+
+		// Unmarshal the JSON into the execFiles slice
+		err := json.Unmarshal([]byte(filesStr), &files)
 		if err != nil {
-			return nil, fmt.Errorf("failed to exec python: %v", err)
-		}
-	case models.Go:
-		stdin, completionChan, err = execGolang(commandCtx, codeString, stdOut, stdErr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to exec golang: %v", err)
-		}
-	case models.Cpp:
-		stdin, completionChan, err = execCpp(commandCtx, codeString, stdOut, stdErr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to exec cpp: %v", err)
-		}
-	case models.Csharp:
-		stdin, completionChan, err = execCSharp(commandCtx, codeString, stdOut, stdErr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to exec C#: %v", err)
-		}
-	case models.JavaScript:
-		stdin, completionChan, err = execJavascript(commandCtx, codeString, stdOut, stdErr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to exec javascript: %v", err)
+			return nil, fmt.Errorf("failed to unmarshal exec files: %v", err)
 		}
 
-	case models.Java:
-		stdin, completionChan, err = execJava(commandCtx, codeString, stdOut, stdErr, fileName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to exec java: %v", err)
-		}
+		switch language {
+		case models.Python:
+			stdin, completionChan, err = execPythonFiles(commandCtx, codeString, stdOut, stdErr, files)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec python files: %v", err)
+			}
+		case models.Go:
+			stdin, completionChan, err = execGolangFiles(commandCtx, codeString, stdOut, stdErr, files)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec golang files: %v", err)
+			}
+		case models.Cpp:
+			stdin, completionChan, err = execCppFiles(commandCtx, codeString, stdOut, stdErr, files)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec cpp files: %v", err)
+			}
+		case models.Csharp:
+			stdin, completionChan, err = execCSharpFiles(commandCtx, codeString, stdOut, stdErr, files)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec C# files: %v", err)
+			}
+		case models.JavaScript:
+			stdin, completionChan, err = execJavascriptFiles(commandCtx, codeString, stdOut, stdErr, files)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec javascript files: %v", err)
+			}
 
-	case models.TypeScript:
-		stdin, completionChan, err = execTypescript(commandCtx, codeString, stdOut, stdErr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to exec typescript: %v", err)
+		case models.Java:
+			stdin, completionChan, err = execJavaFiles(commandCtx, codeString, stdOut, stdErr, files)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec java: %v", err)
+			}
+
+		case models.TypeScript:
+			stdin, completionChan, err = execTypescriptFiles(commandCtx, codeString, stdOut, stdErr, files)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec typescript: %v", err)
+			}
+		case models.Rust:
+			stdin, completionChan, err = execRustFiles(commandCtx, codeString, stdOut, stdErr, files)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec rust: %v", err)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported programming language: %s", language.String())
 		}
-	case models.Rust:
-		stdin, completionChan, err = execRust(commandCtx, codeString, stdOut, stdErr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to exec rust: %v", err)
+	} else {
+		switch language {
+		case models.Python:
+			stdin, completionChan, err = execPython(commandCtx, codeString, stdOut, stdErr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec python: %v", err)
+			}
+		case models.Go:
+			stdin, completionChan, err = execGolang(commandCtx, codeString, stdOut, stdErr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec golang: %v", err)
+			}
+		case models.Cpp:
+			stdin, completionChan, err = execCpp(commandCtx, codeString, stdOut, stdErr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec cpp: %v", err)
+			}
+		case models.Csharp:
+			stdin, completionChan, err = execCSharp(commandCtx, codeString, stdOut, stdErr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec C#: %v", err)
+			}
+		case models.JavaScript:
+			stdin, completionChan, err = execJavascript(commandCtx, codeString, stdOut, stdErr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec javascript: %v", err)
+			}
+
+		case models.Java:
+			stdin, completionChan, err = execJava(commandCtx, codeString, stdOut, stdErr, fileName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec java: %v", err)
+			}
+
+		case models.TypeScript:
+			stdin, completionChan, err = execTypescript(commandCtx, codeString, stdOut, stdErr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec typescript: %v", err)
+			}
+		case models.Rust:
+			stdin, completionChan, err = execRust(commandCtx, codeString, stdOut, stdErr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec rust: %v", err)
+			}
+		case models.Bash:
+			stdin, completionChan, cleanupFunc, err = execBash(commandCtx, codeString, stdOut, stdErr, fileName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to exec bash: %v", err)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported programming language: %s", language.String())
 		}
-	case models.Bash:
-		stdin, completionChan, cleanupFunc, err = execBash(commandCtx, codeString, stdOut, stdErr, fileName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to exec bash: %v", err)
-		}
-	default:
-		return nil, fmt.Errorf("unsupported programming language: %s", language.String())
 	}
 
 	// wrap stdin in a multiwriter that will also forward to the stdout channel
