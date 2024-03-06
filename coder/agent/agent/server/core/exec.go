@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"gigo-ws/coder/agent/agent/server/payload"
 	"gigo-ws/utils"
@@ -36,11 +37,6 @@ npm init -y
 tsc main.ts
 `
 
-const rustPrePrepScript = `#!/bin/bash
-cargo new rsrun
-cd rsrun/src
-`
-
 const rustPrepScript = `#!/bin/bash
 cargo build
 `
@@ -73,8 +69,8 @@ func execPython(ctx context.Context, code string, stdout chan string, stderr cha
 	}
 
 	// execute python code
-	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/pyrun", "bash", "-c", pythonPrepScript)
-	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/pyrun", stdout,
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/pyrun", "bash", "-c", pythonPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/pyrun", stdout,
 		stderr, true, "/opt/python-bytes/default/bin/python", "-u", "main.py")
 }
 
@@ -94,9 +90,9 @@ func execJavascript(ctx context.Context, code string, stdout chan string, stderr
 	}
 
 	// execute js code
-	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/jsrun", "bash", "-c", jsPrepScript)
-	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/jsrun", stdout,
-		stderr, true, "node", "", "index.js")
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/jsrun", "bash", "-c", jsPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/jsrun", stdout,
+		stderr, true, "node", "index.js")
 }
 
 func execCpp(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
@@ -115,9 +111,9 @@ func execCpp(ctx context.Context, code string, stdout chan string, stderr chan s
 	}
 
 	// execute js code
-	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/jsrun", "bash", "-c", cppPrepScript)
-	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/cpprun", stdout,
-		stderr, true, "", "", "./main")
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/cpprun", "bash", "-c", cppPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/cpprun", stdout,
+		stderr, true, "./main")
 }
 
 func execTypescript(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
@@ -136,18 +132,22 @@ func execTypescript(ctx context.Context, code string, stdout chan string, stderr
 	}
 
 	// execute js code
-	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/tsrun", "bash", "-c", tsPrepScript)
-	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/tsrun", stdout,
-		stderr, true, "node", "", "main.js")
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/tsrun", "bash", "-c", tsPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/tsrun", stdout,
+		stderr, true, "node", "main.js")
 }
 
 func execRust(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+	fmt.Println("env: ", os.Environ())
+
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/rsrun"); !ok {
-		_, err := utils.ExecuteCommand(ctx, nil, "/tmp/rsrun", "bash", "-c", rustPrePrepScript)
+		c, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "cargo", "new", "rsrun")
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 		}
+		b, _ := json.Marshal(c)
+		fmt.Println("prep: ", string(b))
 	}
 
 	// write the js file
@@ -157,15 +157,15 @@ func execRust(ctx context.Context, code string, stdout chan string, stderr chan 
 	}
 
 	// execute js code
-	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/tsrun", "bash", "-c", rustPrepScript)
-	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/tsrun", stdout,
-		stderr, true, "cargo", "run", "")
+	// _, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/rsrun", "bash", "-c", rustPrepScript)
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/rsrun", stdout,
+		stderr, true, "cargo", "run")
 }
 
 func execCSharp(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/csrun"); !ok {
-		_, err := utils.ExecuteCommand(ctx, nil, "/tmp", "bash", "-c", csPrePrepScript)
+		_, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "bash", "-c", csPrePrepScript)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 		}
@@ -177,8 +177,8 @@ func execCSharp(ctx context.Context, code string, stdout chan string, stderr cha
 	}
 
 	// execute js code
-	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/csrun", stdout,
-		stderr, true, "dotnet", "run", "")
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/csrun", stdout,
+		stderr, true, "dotnet", "run")
 }
 
 func execJava(ctx context.Context, code string, stdout chan string, stderr chan string, filename *string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
@@ -201,13 +201,13 @@ func execJava(ctx context.Context, code string, stdout chan string, stderr chan 
 		return nil, nil, fmt.Errorf("failed to write file: %w", err)
 	}
 
-	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/jrun", "bash", "-c", fmt.Sprintf(`#!/bin/bash
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/jrun", "bash", "-c", fmt.Sprintf(`#!/bin/bash
 		javac %v.java
 	`, nameStr))
 
 	// execute js code
-	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/csrun", stdout,
-		stderr, true, "java", "", fmt.Sprintf("%v", nameStr))
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/jrun", stdout,
+		stderr, true, "java", fmt.Sprintf("%v", nameStr))
 }
 
 func execGolang(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
@@ -227,35 +227,40 @@ func execGolang(ctx context.Context, code string, stdout chan string, stderr cha
 
 	// conditionally initialize the go module
 	if ok, _ := utils2.PathExists("/tmp/gorun/go.mod"); !ok {
-		_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/gorun", "go", "mod", "init", "gigo-byte")
+		_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/gorun", "go", "mod", "init", "gigo-byte")
 	}
 
 	// execute go code
-	_, _ = utils.ExecuteCommand(ctx, nil, "/tmp/gorun", "go", "mod", "tidy")
-	return utils.ExecuteCommandStreamStdin(ctx, nil, "/tmp/gorun", stdout,
+	_, _ = utils.ExecuteCommand(ctx, os.Environ(), "/tmp/gorun", "go", "mod", "tidy")
+	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/tmp/gorun", stdout,
 		stderr, true, "go", "run", "main.go")
 }
-func execBash(ctx context.Context, code string, stdout chan string, stderr chan string, workingDir *string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+
+func execBash(ctx context.Context, code string, stdout chan string, stderr chan string, workingDir *string) (io.WriteCloser, <-chan *utils.CommandResult, func(), error) {
 	var dir string
 
+	var cleanupFunc func()
 	if workingDir == nil {
 		// Create a temporary directory
 		tempDir, err := ioutil.TempDir("/tmp", "bash")
 		if err != nil {
 			fmt.Println("Failed to create temporary directory:", err)
-			return nil, nil, fmt.Errorf("failed to create temp directory at: %v, err: %w", "/tmp/bash", err)
+			return nil, nil, nil, fmt.Errorf("failed to create temp directory at: %v, err: %w", "/tmp/bash", err)
 		}
 
 		dir = tempDir
 
 		// Defer the removal of the temporary directory
-		defer os.RemoveAll(tempDir)
+		cleanupFunc = func() {
+			os.RemoveAll(tempDir)
+		}
 	} else {
 		dir = *workingDir
 	}
 
-	return utils.ExecuteCommandStreamStdin(ctx, nil, dir, stdout,
+	stdin, resultsChan, err := utils.ExecuteCommandStreamStdin(ctx, os.Environ(), dir, stdout,
 		stderr, true, "bash", "-c", code)
+	return stdin, resultsChan, cleanupFunc, err
 }
 
 // updateOutput updates the output slice with new data.
@@ -326,66 +331,68 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 
 	var stdin io.WriteCloser
 	var completionChan <-chan *utils.CommandResult
+	var cleanupFunc func()
 	var err error
+
+	// execute cleanup function on exit if it is set
+	defer func() {
+		if completionChan == nil {
+			commandCancel()
+			if cleanupFunc != nil {
+				cleanupFunc()
+			}
+		}
+	}()
+
 	switch language {
 	case models.Python:
 		stdin, completionChan, err = execPython(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
-			commandCancel()
 			return nil, fmt.Errorf("failed to exec python: %v", err)
 		}
 	case models.Go:
 		stdin, completionChan, err = execGolang(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
-			commandCancel()
 			return nil, fmt.Errorf("failed to exec golang: %v", err)
 		}
 	case models.Cpp:
 		stdin, completionChan, err = execCpp(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
-			commandCancel()
 			return nil, fmt.Errorf("failed to exec cpp: %v", err)
 		}
 	case models.Csharp:
 		stdin, completionChan, err = execCSharp(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
-			commandCancel()
 			return nil, fmt.Errorf("failed to exec C#: %v", err)
 		}
 	case models.JavaScript:
 		stdin, completionChan, err = execJavascript(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
-			commandCancel()
 			return nil, fmt.Errorf("failed to exec javascript: %v", err)
 		}
 
 	case models.Java:
 		stdin, completionChan, err = execJava(commandCtx, codeString, stdOut, stdErr, fileName)
 		if err != nil {
-			commandCancel()
-			return nil, fmt.Errorf("failed to exec golang: %v", err)
+			return nil, fmt.Errorf("failed to exec java: %v", err)
 		}
 
 	case models.TypeScript:
 		stdin, completionChan, err = execTypescript(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
-			commandCancel()
-			return nil, fmt.Errorf("failed to exec golang: %v", err)
+			return nil, fmt.Errorf("failed to exec typescript: %v", err)
 		}
 	case models.Rust:
 		stdin, completionChan, err = execRust(commandCtx, codeString, stdOut, stdErr)
 		if err != nil {
-			commandCancel()
-			return nil, fmt.Errorf("failed to exec golang: %v", err)
+			return nil, fmt.Errorf("failed to exec rust: %v", err)
 		}
 	case models.Bash:
-		stdin, completionChan, err = execBash(commandCtx, codeString, stdOut, stdErr, fileName)
+		stdin, completionChan, cleanupFunc, err = execBash(commandCtx, codeString, stdOut, stdErr, fileName)
 		if err != nil {
-			commandCancel()
-			return nil, fmt.Errorf("failed to exec golang: %v", err)
+			return nil, fmt.Errorf("failed to exec bash: %v", err)
 		}
 	default:
-		commandCancel()
 		return nil, fmt.Errorf("unsupported programming language: %s", language.String())
 	}
 
@@ -396,6 +403,12 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 	// and pipe the content back to the payload channel
 	go func() {
 		var lastStdOutLineIndex, lastStdErrLineIndex *int
+
+		defer func() {
+			if cleanupFunc != nil {
+				cleanupFunc()
+			}
+		}()
 
 		for {
 			select {
@@ -410,7 +423,7 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 				res.StatusCode = commandRes.ExitCode
 				res.Done = true
 				payloadChan <- res
-				logger.Info(ctx, "comepleted execution", slog.F("result", commandRes))
+				logger.Info(ctx, "completed execution", slog.F("result", commandRes))
 				return
 			}
 			payloadChan <- res
