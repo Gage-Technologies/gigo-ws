@@ -1,6 +1,9 @@
 package payload
 
-import "github.com/gage-technologies/gigo-lib/db/models"
+import (
+	"gigo-ws/coder/agent/agent/server/core"
+	"github.com/gage-technologies/gigo-lib/db/models"
+)
 
 type CancelExecRequestPayload struct {
 	CommandID string `json:"command_id" validate:"number"`
@@ -23,7 +26,7 @@ type ExecRequestPayload struct {
 	Lang     models.ProgrammingLanguage `json:"lang"`
 	Code     string                     `json:"code"`
 	FileName *string                    `json:"file_name"`
-	Files    string                     `json:"exec_files"`
+	Files    []core.ExecFiles           `json:"exec_files"`
 }
 
 type ExecResponsePayload struct {
