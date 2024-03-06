@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"gigo-ws/coder/agent/agent/server/payload"
 	"gigo-ws/utils"
@@ -138,16 +137,12 @@ func execTypescript(ctx context.Context, code string, stdout chan string, stderr
 }
 
 func execRust(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
-	fmt.Println("env: ", os.Environ())
-
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/rsrun"); !ok {
-		c, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "cargo", "new", "rsrun")
+		_, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "cargo", "new", "rsrun")
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 		}
-		b, _ := json.Marshal(c)
-		fmt.Println("prep: ", string(b))
 	}
 
 	// write the js file
