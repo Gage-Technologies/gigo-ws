@@ -1,7 +1,7 @@
 package payload
 
 import (
-	"gigo-ws/coder/agent/agent/server/core"
+	"gigo-ws/coder/agent/agent/server/types"
 	"github.com/gage-technologies/gigo-lib/db/models"
 )
 
@@ -26,7 +26,7 @@ type ExecRequestPayload struct {
 	Lang     models.ProgrammingLanguage `json:"lang"`
 	Code     string                     `json:"code"`
 	FileName *string                    `json:"file_name"`
-	Files    []core.ExecFiles           `json:"exec_files"`
+	Files    []types.ExecFiles          `json:"exec_files"`
 }
 
 type ExecResponsePayload struct {

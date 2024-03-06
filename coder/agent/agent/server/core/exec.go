@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gigo-ws/coder/agent/agent/server/payload"
+	"gigo-ws/coder/agent/agent/server/types"
 	"gigo-ws/utils"
 	"io"
 	"io/ioutil"
@@ -55,7 +56,7 @@ type ActiveCommand struct {
 	ResponseChan chan payload.ExecResponsePayload
 }
 
-func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/pyrun"); ok {
 		err := os.RemoveAll("/tmp/pyrun")
@@ -69,7 +70,7 @@ func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string
 		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	executeFile := new(ExecFiles)
+	executeFile := new(types.ExecFiles)
 
 	for _, k := range files {
 		// write the python file
@@ -89,7 +90,7 @@ func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string
 		stderr, true, "/opt/python-bytes/default/bin/python", "-u", fmt.Sprintf("%v", executeFile.FileName))
 }
 
-func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/jsrun"); ok {
 		err := os.RemoveAll("/tmp/jsrun")
@@ -103,7 +104,7 @@ func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan st
 		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	executeFile := new(ExecFiles)
+	executeFile := new(types.ExecFiles)
 
 	for _, k := range files {
 		// write the python file
@@ -123,7 +124,7 @@ func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan st
 		stderr, true, "node", fmt.Sprintf("%v", executeFile.FileName))
 }
 
-func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/cpprun"); ok {
 		err := os.RemoveAll("/tmp/cpprun")
@@ -137,7 +138,7 @@ func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, f
 		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	executeFile := new(ExecFiles)
+	executeFile := new(types.ExecFiles)
 
 	for _, k := range files {
 		// write the python file
@@ -164,7 +165,7 @@ func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, f
 		stderr, true, "./main")
 }
 
-func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/tsrun"); ok {
 		err := os.RemoveAll("/tmp/tsrun")
@@ -178,7 +179,7 @@ func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan st
 		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	executeFile := new(ExecFiles)
+	executeFile := new(types.ExecFiles)
 
 	for _, k := range files {
 		// write the python file
@@ -204,7 +205,7 @@ func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan st
 		stderr, true, "node", fmt.Sprintf("%v.js", parsedName))
 }
 
-func execRustFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execRustFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/rsrun"); ok {
 		err := os.RemoveAll("/tmp/rsrun")
@@ -234,7 +235,7 @@ func execRustFiles(ctx context.Context, stdout chan string, stderr chan string, 
 		stderr, true, "cargo", "run")
 }
 
-func execCSharpFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execCSharpFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/csrun"); ok {
 		err := os.RemoveAll("/tmp/csrun")
@@ -264,7 +265,7 @@ func execCSharpFiles(ctx context.Context, stdout chan string, stderr chan string
 		stderr, true, "dotnet", "run")
 }
 
-func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/jrun"); ok {
 		err := os.RemoveAll("/tmp/jrun")
@@ -278,7 +279,7 @@ func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, 
 		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	executeFile := new(ExecFiles)
+	executeFile := new(types.ExecFiles)
 
 	for _, k := range files {
 		// write the python file
@@ -304,7 +305,7 @@ func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, 
 		stderr, true, "java", fmt.Sprintf("%v", parsedName))
 }
 
-func execGolangFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execGolangFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/gorun"); ok {
 		err := os.RemoveAll("/tmp/gorun")
@@ -318,7 +319,7 @@ func execGolangFiles(ctx context.Context, stdout chan string, stderr chan string
 		return nil, nil, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	executeFile := new(ExecFiles)
+	executeFile := new(types.ExecFiles)
 
 	for _, k := range files {
 		// write the python file
@@ -601,7 +602,7 @@ func updateOutput(output *[]payload.OutputRow, lastLineIndex **int, newData stri
 	}
 }
 
-func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, fileName *string, files []ExecFiles, logger slog.Logger) (*ActiveCommand, error) {
+func ExecCode(ctx context.Context, codeString string, language models.ProgrammingLanguage, fileName *string, files []types.ExecFiles, logger slog.Logger) (*ActiveCommand, error) {
 	payloadChan := make(chan payload.ExecResponsePayload, 100)
 	stdOut := make(chan string)
 	stdErr := make(chan string)
