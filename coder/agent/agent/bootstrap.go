@@ -86,7 +86,7 @@ type StateFromFile struct {
 // Formats the gigo config environment for ExecCommand
 func formatConfigEnv(metadata agentsdk.WorkspaceAgentMetadata) []string {
 	// format environment into string format and forward our $PATH to the environment
-	env := []string{fmt.Sprintf("PATH=%s", os.Getenv("PATH"))}
+	env := os.Environ()
 	for k, v := range metadata.GigoConfig.Environment {
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -198,7 +198,7 @@ func writeWorkspaceConfig(ctx context.Context, metadata agentsdk.WorkspaceAgentM
 func cloneRepo(ctx context.Context, metadata agentsdk.WorkspaceAgentMetadata) (*utils.CommandResult, error) {
 	// clone repository to the working directory
 	res, err := utils.ExecuteCommand(
-		ctx, nil, "",
+		ctx, os.Environ(), "",
 		"git", "clone", "--recursive", metadata.Repo, metadata.GigoConfig.WorkingDirectory,
 	)
 	if err != nil {
@@ -212,8 +212,8 @@ func cloneRepo(ctx context.Context, metadata agentsdk.WorkspaceAgentMetadata) (*
 
 	// checkout repo
 	res, err = utils.ExecuteCommand(
-		ctx, nil, "",
-		"bash", "-c", fmt.Sprintf("cd %s && git checkout %s", metadata.GigoConfig.WorkingDirectory, metadata.Commit),
+		ctx, nil, metadata.GigoConfig.WorkingDirectory,
+		"git", "checkout", metadata.Commit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to checkout repository: %v", err)

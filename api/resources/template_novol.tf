@@ -96,9 +96,19 @@ resource "kubernetes_pod" "main" {
       # Start the Gigo agent as the "gigo" user
       # once systemd has started up
       echo "Waiting for systemd to start"
-      sudo -u gigo \
-        --preserve-env=GIGO_AGENT_ID,GIGO_AGENT_TOKEN,GIGO_WORKSPACE_ID,PATH,VNC_SCRIPTS,VNC_SETUP_SCRIPTS,VNC_LOG_DIR,VNC_XSTARTUP,VNC_SUPERVISOR_CONFIG,VNC_PORT,VNC_DISPLAY_ID,VNC_COL_DEPTH,VNC_RESOLUTION,NO_VNC_HOME,NO_VNC_PORT,XFCE_BASE_DIR,XFCE_DEST_DIR \
-        /bin/bash -- <<-'      EOT' &
+      echo $PATH > /tmp/path.env
+      sudo -u gigo -E /bin/bash -- <<-'      EOT' &
+      # Repair env after using the root env
+      export SUDO_GID=0
+      export SUDO_USER=root
+      export USER=gigo
+      export HOME="/home/gigo/"
+      export LOGNAME=gigo
+      export SHLVL=0
+      export SHELL=/bin/bash
+      export PATH=$(cat /tmp/path.env)
+      rm /tmp/path.env
+
       while [[ ! $(systemctl is-system-running) =~ ^(running|degraded) ]]
       do
         echo "Waiting for system to start... $(systemctl is-system-running)"
