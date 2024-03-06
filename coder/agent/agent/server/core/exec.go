@@ -54,7 +54,7 @@ type ActiveCommand struct {
 	ResponseChan chan payload.ExecResponsePayload
 }
 
-func execPythonFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/pyrun"); !ok {
 		err := os.MkdirAll("/tmp/pyrun", 0755)
@@ -83,7 +83,7 @@ func execPythonFiles(ctx context.Context, code string, stdout chan string, stder
 		stderr, true, "/opt/python-bytes/default/bin/python", "-u", fmt.Sprintf("%v", executeFile.FileName))
 }
 
-func execJavascriptFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/jsrun"); !ok {
 		err := os.MkdirAll("/tmp/jsrun", 0755)
@@ -112,7 +112,7 @@ func execJavascriptFiles(ctx context.Context, code string, stdout chan string, s
 		stderr, true, "node", fmt.Sprintf("%v", executeFile.FileName))
 }
 
-func execCppFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/cpprun"); !ok {
 		err := os.MkdirAll("/tmp/cpprun", 0755)
@@ -148,7 +148,7 @@ func execCppFiles(ctx context.Context, code string, stdout chan string, stderr c
 		stderr, true, "./main")
 }
 
-func execTypescriptFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/tsrun"); !ok {
 		err := os.MkdirAll("/tmp/tsrun", 0755)
@@ -183,7 +183,7 @@ func execTypescriptFiles(ctx context.Context, code string, stdout chan string, s
 		stderr, true, "node", fmt.Sprintf("%v.js", parsedName))
 }
 
-func execRustFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execRustFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	fmt.Println("env: ", os.Environ())
 
 	// ensure the parent directory exists
@@ -210,7 +210,7 @@ func execRustFiles(ctx context.Context, code string, stdout chan string, stderr 
 		stderr, true, "cargo", "run")
 }
 
-func execCSharpFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execCSharpFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/csrun"); !ok {
 		_, err := utils.ExecuteCommand(ctx, os.Environ(), "/tmp", "bash", "-c", `#!/bin/bash
@@ -235,7 +235,7 @@ func execCSharpFiles(ctx context.Context, code string, stdout chan string, stder
 		stderr, true, "dotnet", "run")
 }
 
-func execJavaFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/jrun"); !ok {
 		err := os.MkdirAll("/tmp/jrun", 0755)
@@ -270,7 +270,7 @@ func execJavaFiles(ctx context.Context, code string, stdout chan string, stderr 
 		stderr, true, "java", fmt.Sprintf("%v", parsedName))
 }
 
-func execGolangFiles(ctx context.Context, code string, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execGolangFiles(ctx context.Context, stdout chan string, stderr chan string, files []ExecFiles) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/tmp/gorun"); !ok {
 		err := os.MkdirAll("/tmp/gorun", 0755)
@@ -304,7 +304,7 @@ func execGolangFiles(ctx context.Context, code string, stdout chan string, stder
 		stderr, true, "go", "run", executeFile.FileName)
 }
 
-/////////////////////////////////////
+// ///////////////////////////////////
 
 func execPython(ctx context.Context, code string, stdout chan string, stderr chan string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
@@ -604,44 +604,44 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 
 		switch language {
 		case models.Python:
-			stdin, completionChan, err = execPythonFiles(commandCtx, codeString, stdOut, stdErr, files)
+			stdin, completionChan, err = execPythonFiles(commandCtx, stdOut, stdErr, files)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec python files: %v", err)
 			}
 		case models.Go:
-			stdin, completionChan, err = execGolangFiles(commandCtx, codeString, stdOut, stdErr, files)
+			stdin, completionChan, err = execGolangFiles(commandCtx, stdOut, stdErr, files)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec golang files: %v", err)
 			}
 		case models.Cpp:
-			stdin, completionChan, err = execCppFiles(commandCtx, codeString, stdOut, stdErr, files)
+			stdin, completionChan, err = execCppFiles(commandCtx, stdOut, stdErr, files)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec cpp files: %v", err)
 			}
 		case models.Csharp:
-			stdin, completionChan, err = execCSharpFiles(commandCtx, codeString, stdOut, stdErr, files)
+			stdin, completionChan, err = execCSharpFiles(commandCtx, stdOut, stdErr, files)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec C# files: %v", err)
 			}
 		case models.JavaScript:
-			stdin, completionChan, err = execJavascriptFiles(commandCtx, codeString, stdOut, stdErr, files)
+			stdin, completionChan, err = execJavascriptFiles(commandCtx, stdOut, stdErr, files)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec javascript files: %v", err)
 			}
 
 		case models.Java:
-			stdin, completionChan, err = execJavaFiles(commandCtx, codeString, stdOut, stdErr, files)
+			stdin, completionChan, err = execJavaFiles(commandCtx, stdOut, stdErr, files)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec java: %v", err)
 			}
 
 		case models.TypeScript:
-			stdin, completionChan, err = execTypescriptFiles(commandCtx, codeString, stdOut, stdErr, files)
+			stdin, completionChan, err = execTypescriptFiles(commandCtx, stdOut, stdErr, files)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec typescript: %v", err)
 			}
 		case models.Rust:
-			stdin, completionChan, err = execRustFiles(commandCtx, codeString, stdOut, stdErr, files)
+			stdin, completionChan, err = execRustFiles(commandCtx, stdOut, stdErr, files)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec rust: %v", err)
 			}
