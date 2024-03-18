@@ -78,12 +78,13 @@ func ExecuteCommand(ctx context.Context, env []string, dir string, binary string
 //		Helper function to execute commands safely via the
 //		github.com/go-cmd/cmd library utilizing the streaming
 //	 functionality to return data line-by-line via channels
-func ExecuteCommandStream(ctx context.Context, env []string, dir string, stdOut chan string, stdErr chan string, binary string,
-	args ...string) (*CommandResult, error) {
+func ExecuteCommandStream(ctx context.Context, env []string, dir string, stdOut chan string, stdErr chan string, directStreaming bool,
+	binary string, args ...string) (*CommandResult, error) {
 	// create a new command using streaming API
 	c := cmd.NewCmdOptions(cmd.Options{
-		Buffered:  false,
-		Streaming: true,
+		Buffered:        false,
+		Streaming:       true,
+		DirectStreaming: directStreaming,
 	}, binary, args...)
 	c.Env = env
 
@@ -158,7 +159,7 @@ func ExecuteCommandStream(ctx context.Context, env []string, dir string, stdOut 
 //		Helper function to execute commands safely via the
 //		github.com/go-cmd/cmd library utilizing the streaming
 //	 functionality to return data line-by-line via channels
-func ExecuteCommandStreamStdin(ctx context.Context, env []string, dir string, stdOut chan string, stdErr chan string, 
+func ExecuteCommandStreamStdin(ctx context.Context, env []string, dir string, stdOut chan string, stdErr chan string,
 	directStreaming bool, binary string, args ...string) (io.WriteCloser, <-chan *CommandResult, error) {
 	// create a new command using streaming API
 	c := cmd.NewCmdOptions(cmd.Options{

@@ -23,10 +23,11 @@ type StdinExecResponsePayload struct {
 }
 
 type ExecRequestPayload struct {
-	Lang     models.ProgrammingLanguage `json:"lang"`
-	Code     string                     `json:"code"`
-	FileName *string                    `json:"file_name"`
-	Files    []types.ExecFiles          `json:"exec_files"`
+	Lang        models.ProgrammingLanguage `json:"lang"`
+	Code        string                     `json:"code"`
+	FileName    *string                    `json:"file_name"`
+	Files       []types.ExecFiles          `json:"exec_files"`
+	ExecCommand string                     `json:"exec_command"`
 }
 
 type ExecResponsePayload struct {

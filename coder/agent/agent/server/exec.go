@@ -70,7 +70,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 		return
 	}
 
-	if mes.Code == "" {
+	if mes.Code == "" && len(mes.Files) == 0 {
 		// return the error payload to the client
 		err := wsjson.Write(socket.ctx, socket.ws, payload.PrepPayload(
 			msg.SequenceID,
@@ -89,7 +89,7 @@ func (a *HttpApi) ExecCode(socket *masterWebSocket, msg *payload.WebSocketPayloa
 		return
 	}
 
-	activeCommand, err := core.ExecCode(socket.ctx, mes.Code, mes.Lang, mes.FileName, mes.Files, socket.logger)
+	activeCommand, err := core.ExecCode(socket.ctx, mes.Code, mes.Lang, mes.ExecCommand, mes.FileName, mes.Files, socket.logger)
 	if err != nil {
 		socket.logger.Error(
 			socket.ctx,

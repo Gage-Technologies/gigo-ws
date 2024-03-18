@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"gigo-ws/utils"
+	"os"
+	"strings"
+
 	"github.com/gage-technologies/gigo-lib/coder/agentsdk"
 	"github.com/gage-technologies/gigo-lib/db/models"
-	"strings"
 )
 
 var (
@@ -20,12 +22,14 @@ python -u -m pylsp --ws --port $PORT
 `
 
 func launchPythonLsp(ctx context.Context, stdout, stderr chan string) (*utils.CommandResult, error) {
-	return utils.ExecuteCommandStream(ctx, nil, "/tmp/pyrun", stdout, stderr,
+	os.MkdirAll("/home/gigo/.gigo/agent-exec/pyrun", 0755)
+	return utils.ExecuteCommandStream(ctx, nil, "/home/gigo/.gigo/agent-exec/pyrun", stdout, stderr, false,
 		"bash", "-c", strings.ReplaceAll(pythonLspScript, "$PORT", fmt.Sprint(agentsdk.ZitiAgentLspWsPort)))
 }
 
 func launchGolangLsp(ctx context.Context, stdout, stderr chan string) (*utils.CommandResult, error) {
-	return utils.ExecuteCommandStream(ctx, nil, "/tmp/gorun", stdout, stderr,
+	os.MkdirAll("/home/gigo/.gigo/agent-exec/gorun", 0755)
+	return utils.ExecuteCommandStream(ctx, nil, "/home/gigo/.gigo/agent-exec/gorun", stdout, stderr, false,
 		"lsp-ws-proxy", "--listen", fmt.Sprintf("%d", agentsdk.ZitiAgentLspWsPort), "--", "gopls")
 }
 
