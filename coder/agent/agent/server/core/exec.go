@@ -101,7 +101,7 @@ func prepExecCommand(execCommand string, execFileName string) (string, []string)
 	return parts[0], parts[1:]
 }
 
-func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string, logger slog.Logger) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/home/gigo/.gigo/agent-exec/pyrun"); ok {
 		err := os.RemoveAll("/home/gigo/.gigo/agent-exec/pyrun")
@@ -125,14 +125,16 @@ func execPythonFiles(ctx context.Context, stdout chan string, stderr chan string
 
 	if execCommand != "" {
 		binary, args := prepExecCommand(execCommand, executeFile.FileName)
+		logger.Info(ctx, "executing remote command", slog.F("binary", binary), slog.F("args", args))
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/pyrun", stdout,
 			stderr, true, binary, args...)
 	}
+	logger.Info(ctx, "executing default run command", slog.F("binary", "/opt/python-bytes/default/bin/python"), slog.F("args", []string{"-u", fmt.Sprintf("%v", executeFile.FileName)}))
 	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/pyrun", stdout,
 		stderr, true, "/opt/python-bytes/default/bin/python", "-u", fmt.Sprintf("%v", executeFile.FileName))
 }
 
-func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string, logger slog.Logger) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/home/gigo/.gigo/agent-exec/jsrun"); ok {
 		err := os.RemoveAll("/home/gigo/.gigo/agent-exec/jsrun")
@@ -160,6 +162,7 @@ func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan st
 
 	if execCommand != "" {
 		binary, args := prepExecCommand(execCommand, executeFile.FileName)
+		logger.Info(ctx, "executing remote command", slog.F("binary", binary), slog.F("args", args))
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/jsrun", stdout,
 			stderr, true, binary, args...)
 	}
@@ -171,17 +174,19 @@ func execJavascriptFiles(ctx context.Context, stdout chan string, stderr chan st
 	}
 	startCmd, _ := jsonparser.GetString(packageBuf, "scripts", "start")
 	if startCmd != "" {
+		logger.Info(ctx, "executing default run command", slog.F("binary", "yarn"), slog.F("args", []string{"start"}))
 		// utilize the start script if we have it
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/jsrun", stdout,
 			stderr, true, "yarn", "start")
 	} else {
+		logger.Info(ctx, "executing default run command", slog.F("binary", "node"), slog.F("args", []string{fmt.Sprintf("%v", executeFile.FileName)}))
 		// run the current file if we don't have a start script
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/jsrun", stdout,
 			stderr, true, "node", fmt.Sprintf("%v", executeFile.FileName))
 	}
 }
 
-func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string, logger slog.Logger) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/home/gigo/.gigo/agent-exec/cpprun"); ok {
 		err := os.RemoveAll("/home/gigo/.gigo/agent-exec/cpprun")
@@ -202,6 +207,7 @@ func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, f
 
 	if execCommand != "" {
 		binary, args := prepExecCommand(execCommand, executeFile.FileName)
+		logger.Info(ctx, "executing remote command", slog.F("binary", binary), slog.F("args", args))
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/cpprun", stdout,
 			stderr, true, binary, args...)
 	}
@@ -213,11 +219,12 @@ func execCppFiles(ctx context.Context, stdout chan string, stderr chan string, f
 		chmod +x main
 		`, executeFile.FileName),
 	)
+	logger.Info(ctx, "executing default run command", slog.F("binary", "./main"), slog.F("args", []string{}))
 	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/cpprun", stdout,
 		stderr, true, "./main")
 }
 
-func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string, logger slog.Logger) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/home/gigo/.gigo/agent-exec/tsrun"); ok {
 		err := os.RemoveAll("/home/gigo/.gigo/agent-exec/tsrun")
@@ -238,6 +245,7 @@ func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan st
 
 	if execCommand != "" {
 		binary, args := prepExecCommand(execCommand, executeFile.FileName)
+		logger.Info(ctx, "executing remote command", slog.F("binary", binary), slog.F("args", args))
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/tsrun", stdout,
 			stderr, true, binary, args...)
 	}
@@ -250,11 +258,12 @@ func execTypescriptFiles(ctx context.Context, stdout chan string, stderr chan st
 	)
 	extension := filepath.Ext(executeFile.FileName)
 	parsedName := strings.TrimSuffix(executeFile.FileName, extension)
+	logger.Info(ctx, "executing default run command", slog.F("binary", "node"), slog.F("args", []string{fmt.Sprintf("%v.js", parsedName)}))
 	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/tsrun", stdout,
 		stderr, true, "node", fmt.Sprintf("%v.js", parsedName))
 }
 
-func execRustFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execRustFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string, logger slog.Logger) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/home/gigo/.gigo/agent-exec/rsrun"); ok {
 		err := os.RemoveAll("/home/gigo/.gigo/agent-exec/rsrun")
@@ -286,15 +295,17 @@ func execRustFiles(ctx context.Context, stdout chan string, stderr chan string, 
 
 	if execCommand != "" {
 		binary, args := prepExecCommand(execCommand, executeFile.FileName)
+		logger.Info(ctx, "executing remote command", slog.F("binary", binary), slog.F("args", args))
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/rsrun", stdout,
 			stderr, true, binary, args...)
 	}
 
+	logger.Info(ctx, "executing default run command", slog.F("binary", "cargo"), slog.F("args", []string{"run"}))
 	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/rsrun", stdout,
 		stderr, true, "cargo", "run")
 }
 
-func execCSharpFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execCSharpFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string, logger slog.Logger) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/home/gigo/.gigo/agent-exec/csrun"); ok {
 		err := os.RemoveAll("/home/gigo/.gigo/agent-exec/csrun")
@@ -336,16 +347,18 @@ func execCSharpFiles(ctx context.Context, stdout chan string, stderr chan string
 
 	if execCommand != "" {
 		binary, args := prepExecCommand(execCommand, executeFile.FileName)
+		logger.Info(ctx, "executing remote command", slog.F("binary", binary), slog.F("args", args))
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/csrun", stdout,
 			stderr, true, binary, args...)
 	}
 
+	logger.Info(ctx, "executing default run command", slog.F("binary", "dotnet"), slog.F("args", []string{"run"}))
 	// execute js code
 	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/csrun", stdout,
 		stderr, true, "dotnet", "run")
 }
 
-func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string, logger slog.Logger) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/home/gigo/.gigo/agent-exec/jrun"); ok {
 		err := os.RemoveAll("/home/gigo/.gigo/agent-exec/jrun")
@@ -366,6 +379,7 @@ func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, 
 
 	if execCommand != "" {
 		binary, args := prepExecCommand(execCommand, executeFile.FileName)
+		logger.Info(ctx, "executing remote command", slog.F("binary", binary), slog.F("args", args))
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/jrun", stdout,
 			stderr, true, binary, args...)
 	}
@@ -377,12 +391,13 @@ func execJavaFiles(ctx context.Context, stdout chan string, stderr chan string, 
 	extension := filepath.Ext(executeFile.FileName)
 	parsedName := strings.TrimSuffix(executeFile.FileName, extension)
 
+	logger.Info(ctx, "executing default run command", slog.F("binary", "java"), slog.F("args", []string{fmt.Sprintf("%v", parsedName)}))
 	// execute js code
 	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/jrun", stdout,
 		stderr, true, "java", fmt.Sprintf("%v", parsedName))
 }
 
-func execGolangFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string) (io.WriteCloser, <-chan *utils.CommandResult, error) {
+func execGolangFiles(ctx context.Context, stdout chan string, stderr chan string, files []types.ExecFiles, execCommand string, logger slog.Logger) (io.WriteCloser, <-chan *utils.CommandResult, error) {
 	// ensure the parent directory exists
 	if ok, _ := utils2.PathExists("/home/gigo/.gigo/agent-exec/gorun"); ok {
 		err := os.RemoveAll("/home/gigo/.gigo/agent-exec/gorun")
@@ -408,12 +423,14 @@ func execGolangFiles(ctx context.Context, stdout chan string, stderr chan string
 
 	if execCommand != "" {
 		binary, args := prepExecCommand(execCommand, executeFile.FileName)
+		logger.Info(ctx, "executing remote command", slog.F("binary", binary), slog.F("args", args))
 		return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/gorun", stdout,
 			stderr, true, binary, args...)
 	}
 
 	// execute go code
 	_, _ = utils.ExecuteCommandStream(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/gorun", stdout, stderr, true, "go", "mod", "tidy")
+	logger.Info(ctx, "executing default run command", slog.F("binary", "go"), slog.F("args", []string{"run", executeFile.FileName}))
 	return utils.ExecuteCommandStreamStdin(ctx, os.Environ(), "/home/gigo/.gigo/agent-exec/gorun", stdout,
 		stderr, true, "go", "run", executeFile.FileName)
 }
@@ -723,44 +740,44 @@ func ExecCode(ctx context.Context, codeString string, language models.Programmin
 
 		switch language {
 		case models.Python:
-			stdin, completionChan, err = execPythonFiles(commandCtx, stdOut, stdErr, files, execCommand)
+			stdin, completionChan, err = execPythonFiles(commandCtx, stdOut, stdErr, files, execCommand, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec python files: %v", err)
 			}
 		case models.Go:
-			stdin, completionChan, err = execGolangFiles(commandCtx, stdOut, stdErr, files, execCommand)
+			stdin, completionChan, err = execGolangFiles(commandCtx, stdOut, stdErr, files, execCommand, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec golang files: %v", err)
 			}
 		case models.Cpp:
-			stdin, completionChan, err = execCppFiles(commandCtx, stdOut, stdErr, files, execCommand)
+			stdin, completionChan, err = execCppFiles(commandCtx, stdOut, stdErr, files, execCommand, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec cpp files: %v", err)
 			}
 		case models.Csharp:
-			stdin, completionChan, err = execCSharpFiles(commandCtx, stdOut, stdErr, files, execCommand)
+			stdin, completionChan, err = execCSharpFiles(commandCtx, stdOut, stdErr, files, execCommand, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec C# files: %v", err)
 			}
 		case models.JavaScript:
-			stdin, completionChan, err = execJavascriptFiles(commandCtx, stdOut, stdErr, files, execCommand)
+			stdin, completionChan, err = execJavascriptFiles(commandCtx, stdOut, stdErr, files, execCommand, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec javascript files: %v", err)
 			}
 
 		case models.Java:
-			stdin, completionChan, err = execJavaFiles(commandCtx, stdOut, stdErr, files, execCommand)
+			stdin, completionChan, err = execJavaFiles(commandCtx, stdOut, stdErr, files, execCommand, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec java: %v", err)
 			}
 
 		case models.TypeScript:
-			stdin, completionChan, err = execTypescriptFiles(commandCtx, stdOut, stdErr, files, execCommand)
+			stdin, completionChan, err = execTypescriptFiles(commandCtx, stdOut, stdErr, files, execCommand, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec typescript: %v", err)
 			}
 		case models.Rust:
-			stdin, completionChan, err = execRustFiles(commandCtx, stdOut, stdErr, files, execCommand)
+			stdin, completionChan, err = execRustFiles(commandCtx, stdOut, stdErr, files, execCommand, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to exec rust: %v", err)
 			}
