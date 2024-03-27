@@ -354,8 +354,8 @@ func (p *WorkspacePool) resolveStateDeltas() {
 
 	// get the stalled and expired workspaces in the subpool
 	rows, err := p.DB.DB.Query(
-		"select _id from workspace_pool where (state = ? and create_start_timestamp <= now() - interval 30 minute) or (expiration >= now() or expiration is null)",
-		models.WorkspacePoolStateProvisioning,
+		"select _id from workspace_pool where (state = ? and create_start_timestamp <= now() - interval 30 minute) or (state != ? and (expiration >= now() or expiration is null))",
+		models.WorkspacePoolStateProvisioning, models.WorkspacePoolStateInUse,
 	)
 	if err != nil {
 		p.Logger.Errorf("error querying for stalled workspaces: %v", err)
