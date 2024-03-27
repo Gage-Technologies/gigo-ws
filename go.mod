@@ -8,7 +8,7 @@ require (
 	github.com/buger/jsonparser v1.1.1
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/coder/retry v1.3.0
-	github.com/gage-technologies/gigo-lib v0.0.0-20240312182312-9e61a9d055de
+	github.com/gage-technologies/gigo-lib v0.0.0-20240326180814-f44fa6cebf4e
 	github.com/gliderlabs/ssh v0.3.4
 	github.com/go-chi/chi v1.5.5
 	github.com/go-chi/cors v1.2.1

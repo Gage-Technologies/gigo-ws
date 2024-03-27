@@ -206,6 +206,7 @@ func (a *agent) run(ctx context.Context) error {
 		return xerrors.Errorf("update workspace agent version: %w", err)
 	}
 
+	a.logger.Info(ctx, "workspace config received", slog.F("config", metadata.GigoConfig))
 	oldMetadata := a.metadata.Swap(metadata)
 
 	// The startup script should only execute on the first run!
