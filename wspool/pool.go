@@ -129,6 +129,21 @@ func (p *WorkspacePool) GetWorkspace(container string, memory int64, cpu int64, 
 	return ws, nil
 }
 
+// GetPodName
+//
+// Retrieves the name of the pod for the workspace id if there is a pooled workspace for the id
+func (p *WorkspacePool) GetPodName(workspacePoolId int64) (string, error) {
+	// attempt to retrieve id
+	id, err := p.GetPoolAliasID(workspacePoolId)
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve Workspace pool id %d: %v", workspacePoolId, err)
+	}
+	if id == 0 {
+		return "", nil
+	}
+	return fmt.Sprintf("gigo-ws-pool-%d", id), nil
+}
+
 // ReleaseWorkspace
 //
 //	Releases a Workspace back to the pool.
@@ -225,10 +240,6 @@ func (p *WorkspacePool) ResolveStateDeltas() {
 //	reconcile the two.
 func (p *WorkspacePool) resolveStateDeltas() {
 	p.Logger.Debug("resolving state deltas")
-
-	// create slices of Workspaces that should be provisioned and destroyed
-	// provisionSet := make([]*models.WorkspacePool, 0)
-	destroySet := make([]int64, 0)
 
 	// iterate over the subpools
 	for _, subpool := range p.Config.SubPools {
@@ -341,6 +352,9 @@ func (p *WorkspacePool) resolveStateDeltas() {
 				continue
 			}
 
+			// create a slice to hold the ids that will be destroyed
+			destroySet := make([]int64, 0)
+
 			// iterate over the results and add the ids to the destroy set
 			for res.Next() {
 				var id int64
@@ -352,10 +366,30 @@ func (p *WorkspacePool) resolveStateDeltas() {
 
 				destroySet = append(destroySet, id)
 			}
+			p.Logger.Debugf("destroying %d workspaces for subpool %s", len(destroySet), subpool.Container)
 
 			_ = res.Close()
 
-			p.Logger.Debugf("destroying %d Workspaces for subpool %s", len(destroySet), subpool.Container)
+			// destroy the workspaces
+			for _, id := range destroySet {
+				id := id
+				// mark the workspace as destroying
+				_, err := p.DB.DB.Exec(
+					"update workspace_pool set state = ?, last_state_update = now() where _id = ?",
+					models.WorkspacePoolStateDestroying, id,
+				)
+				if err != nil {
+					p.Logger.Errorf("failed to mark workspace as destroying %d: %v", id, err)
+				}
+
+				p.wg.Go(func() {
+					p.Logger.Debugf("destroying pool Workspace: %d", id)
+					err = p.destroyWorkspace(id)
+					if err != nil {
+						p.Logger.Errorf("error destroying Workspace %d: %v", id, err)
+					}
+				})
+			}
 		}
 	}
 
@@ -368,8 +402,9 @@ func (p *WorkspacePool) resolveStateDeltas() {
 		p.Logger.Errorf("error querying for stalled workspaces: %v", err)
 	}
 	defer rows.Close()
-	count := 0
+
 	// iterate over the results and add the ids to the destroy set
+	destroySet := make([]int64, 0)
 	for rows.Next() {
 		var id int64
 		err := rows.Scan(&id)
@@ -378,24 +413,22 @@ func (p *WorkspacePool) resolveStateDeltas() {
 			continue
 		}
 
-		count += 1
 		destroySet = append(destroySet, id)
 	}
-	p.Logger.Debugf("destroying %d workspaces for expiration or stall", count)
+	p.Logger.Debugf("destroying %d workspaces for expiration or stall", len(destroySet))
 
 	// destroy the Workspaces that need to be destroyed
 	for _, id := range destroySet {
 		id := id
+		// mark the workspace as destroying
+		_, err := p.DB.DB.Exec(
+			"update workspace_pool set state = ?, last_state_update = now() where _id = ?",
+			models.WorkspacePoolStateDestroying, id,
+		)
+		if err != nil {
+			p.Logger.Errorf("failed to mark workspace as destroying %d: %v", id, err)
+		}
 		p.wg.Go(func() {
-			// mark the workspace as destroying
-			_, err := p.DB.DB.Exec(
-				"update workspace_pool set state = ?, last_state_update = now() where _id = ?",
-				models.WorkspacePoolStateDestroying, id,
-			)
-			if err != nil {
-				p.Logger.Errorf("failed to mark workspace as destroying %d: %v", id, err)
-			}
-
 			p.Logger.Debugf("destroying pool Workspace: %d", id)
 			err = p.destroyWorkspace(id)
 			if err != nil {

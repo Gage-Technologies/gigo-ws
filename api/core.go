@@ -88,6 +88,7 @@ type destroyWorkspaceOptions struct {
 type getResourceUtilOptions struct {
 	KubeClient    *kubernetes.Clientset
 	MetricsClient *versioned.Clientset
+	WorkspacePool *wspool.WorkspacePool
 	WorkspaceID   int64
 	OwnerID       int64
 }
@@ -465,13 +466,22 @@ func destroyWorkspace(ctx context.Context, opts destroyWorkspaceOptions) (*provi
 }
 
 func getResourceUtil(ctx context.Context, opts getResourceUtilOptions) (*ResourceUtilization, error) {
+	// check the workspace pool for the id
+	name, err := opts.WorkspacePool.GetPodName(opts.WorkspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to remove terraform statefiles: %v", err)
+	}
+	if name == "" {
+		name = fmt.Sprintf("gigo-ws-%d-%d", opts.OwnerID, opts.WorkspaceID)
+	}
+
 	// retrieve the pods specification
 	pod, err := opts.KubeClient.
 		CoreV1().
 		Pods("gigo-ws-prov-plane").
 		Get(
 			context.TODO(),
-			fmt.Sprintf("gigo-ws-%d-%d", opts.OwnerID, opts.WorkspaceID),
+			name,
 			metav1.GetOptions{},
 		)
 	if err != nil {
