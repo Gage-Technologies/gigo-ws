@@ -241,6 +241,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 
 	// iterate over the subpools
 	for _, subpool := range p.Config.SubPools {
+		subpool := subpool
 		p.Logger.Debugf("resolving state deltas for subpool: %s", subpool.Container)
 
 		// get the count of available Workspaces in the subpool
