@@ -64,12 +64,10 @@ type WorkspacePool struct {
 }
 
 func NewWorkspacePool(params WorkspacePoolParams) *WorkspacePool {
-	pool := &WorkspacePool{
+	return &WorkspacePool{
 		WorkspacePoolParams: params,
 		wg:                  pool.New().WithMaxGoroutines(10),
 	}
-
-	return pool
 }
 
 // GetWorkspace

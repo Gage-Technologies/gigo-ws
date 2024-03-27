@@ -473,6 +473,7 @@ func (s *ProvisionerApiServer) GetResourceUtil(ctx context.Context, request *ws.
 	util, err := getResourceUtil(ctx, getResourceUtilOptions{
 		KubeClient:    s.KubeClient,
 		MetricsClient: s.MetricsClient,
+		WorkspacePool: s.WsPool,
 		WorkspaceID:   request.GetWorkspaceId(),
 		OwnerID:       request.GetOwnerId(),
 	})
