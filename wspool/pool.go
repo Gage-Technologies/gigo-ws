@@ -115,7 +115,7 @@ func (p *WorkspacePool) GetWorkspace(container string, memory int64, cpu int64, 
 	ws.WorkspaceTableID = &workspaceId
 
 	// update the Workspace in the database
-	_, err = tx.Exec("update workspace_pool set state = ?, workspace_table_id = ? where _id = ?", ws.State, ws.WorkspaceTableID, ws.ID)
+	_, err = tx.Exec("update workspace_pool set state = ?, last_state_update = now(), workspace_table_id = ? where _id = ?", ws.State, ws.WorkspaceTableID, ws.ID)
 	if err != nil {
 		return nil, fmt.Errorf("error updating Workspace: %v", err)
 	}
@@ -136,7 +136,7 @@ func (p *WorkspacePool) GetWorkspace(container string, memory int64, cpu int64, 
 //	NEVER RELEASE A Workspace WHICH HAS BEEN ATTACHED TO A WORKSPACE - WorkspaceS CONTAIN USER DATA
 func (p *WorkspacePool) ReleaseWorkspace(workspacePoolId int64) error {
 	// update the Workspace state in the database
-	_, err := p.DB.DB.Exec("update workspace_pool set state = ?, workspace_table_id = null where _id = ?", models.WorkspacePoolStateAvailable, workspacePoolId)
+	_, err := p.DB.DB.Exec("update workspace_pool set state = ?, last_state_update = now(), workspace_table_id = null where _id = ?", models.WorkspacePoolStateAvailable, workspacePoolId)
 	if err != nil {
 		return fmt.Errorf("error updating Workspace: %v", err)
 	}
@@ -237,7 +237,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 		// get the count of available Workspaces in the subpool
 		var availableCount int
 		err := p.DB.DB.QueryRow(
-			"select count(*) from workspace_pool where container = ? and (state = ? or (state = ? and create_start_timestamp > now() - interval 30 minute)) and memory = ? and cpu = ? and volume_size = ? and expiration < now()",
+			"select count(*) from workspace_pool where container = ? and (state = ? or (state = ? and last_state_update > now() - interval 30 minute)) and memory = ? and cpu = ? and volume_size = ? and expiration > now()",
 			subpool.Container, models.WorkspacePoolStateAvailable, models.WorkspacePoolStateProvisioning, subpool.Memory, subpool.CPU, subpool.VolumeSize,
 		).Scan(&availableCount)
 		if err != nil {
@@ -255,7 +255,14 @@ func (p *WorkspacePool) resolveStateDeltas() {
 			// create the Workspaces
 			for i := 0; i < neededCount; i++ {
 				p.wg.Go(func() {
+					defer func() {
+						if r := recover(); r != nil {
+							p.Logger.Errorf("unexpected panic provisioning workspace: %v\n%s", r, string(debug.Stack()))
+						}
+					}()
+
 					id := p.SfNode.Generate().Int64()
+					p.Logger.Debugf("provisioning new workspace for subpool %s: %d", subpool.Container, id)
 					pooledWs := models.CreateWorkspacePool(
 						id,
 						subpool.Container,
@@ -312,7 +319,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 					}
 
 					_, err = p.DB.DB.Exec(
-						"update workspace_pool set state = ?, agent_id = ?, secret = uuid_to_bin(?) where _id = ?",
+						"update workspace_pool set state = ?, last_state_update = now(), agent_id = ?, secret = uuid_to_bin(?) where _id = ?",
 						models.WorkspacePoolStateAvailable, agent.ID, agent.Token, pooledWs.ID,
 					)
 					if err != nil {
@@ -326,7 +333,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 		if availableCount > subpool.PoolSize {
 			// query for the workspaces that are available and not in use
 			res, err := p.DB.DB.Query(
-				"select _id from where container = ? and (state = ? or (state = ? and create_start_timestamp > now() - interval 30 minute)) and memory = ? and cpu = ? and volume_size = ? limit ?",
+				"select _id from workspace_pool where container = ? and (state = ? or (state = ? and last_state_update > now() - interval 30 minute)) and memory = ? and cpu = ? and volume_size = ? limit ?",
 				subpool.Container, models.WorkspacePoolStateAvailable, models.WorkspacePoolStateProvisioning, subpool.Memory, subpool.CPU, subpool.VolumeSize, availableCount-subpool.PoolSize,
 			)
 			if err != nil {
@@ -354,13 +361,14 @@ func (p *WorkspacePool) resolveStateDeltas() {
 
 	// get the stalled and expired workspaces in the subpool
 	rows, err := p.DB.DB.Query(
-		"select _id from workspace_pool where (state = ? and create_start_timestamp <= now() - interval 30 minute) or (state != ? and (expiration >= now() or expiration is null))",
-		models.WorkspacePoolStateProvisioning, models.WorkspacePoolStateInUse,
+		"select _id from workspace_pool where (state in (?, ?) and last_state_update <= now() - interval 30 minute) or (state = ? and (expiration <= now() or expiration is null))",
+		models.WorkspacePoolStateProvisioning, models.WorkspacePoolStateDestroying, models.WorkspacePoolStateAvailable,
 	)
 	if err != nil {
 		p.Logger.Errorf("error querying for stalled workspaces: %v", err)
 	}
 	defer rows.Close()
+	count := 0
 	// iterate over the results and add the ids to the destroy set
 	for rows.Next() {
 		var id int64
@@ -370,8 +378,10 @@ func (p *WorkspacePool) resolveStateDeltas() {
 			continue
 		}
 
+		count += 1
 		destroySet = append(destroySet, id)
 	}
+	p.Logger.Debugf("destroying %d workspaces for expiration or stall", count)
 
 	// destroy the Workspaces that need to be destroyed
 	for _, id := range destroySet {
@@ -379,7 +389,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 		p.wg.Go(func() {
 			// mark the workspace as destroying
 			_, err := p.DB.DB.Exec(
-				"update workspace_pool set state = ? where _id = ?",
+				"update workspace_pool set state = ?, last_state_update = now() where _id = ?",
 				models.WorkspacePoolStateDestroying, id,
 			)
 			if err != nil {
@@ -528,7 +538,7 @@ func (p *WorkspacePool) destroyWorkspace(poolId int64) error {
 	// load module using the workspace id
 	module, err := models2.LoadModule(p.StorageEngine, poolId)
 	if err != nil {
-		return fmt.Errorf("failed to load module: %v", err)
+		return fmt.Errorf("failed to load module %d: %v", poolId, err)
 	}
 	if module == nil {
 		// if it's not found then we don't need to do anything
@@ -538,25 +548,25 @@ func (p *WorkspacePool) destroyWorkspace(poolId int64) error {
 	// perform destroy operation
 	_, err = p.Provisioner.Destroy(context.Background(), module)
 	if err != nil {
-		return fmt.Errorf("failed to destroy configuration: %v", err)
+		return fmt.Errorf("failed to destroy configuration %d: %v", poolId, err)
 	}
 
 	// delete the module from storage
 	err = models2.DeleteModule(p.StorageEngine, poolId)
 	if err != nil {
-		return fmt.Errorf("failed to delete module from storage: %v", err)
+		return fmt.Errorf("failed to delete module from storage %d: %v", poolId, err)
 	}
 
 	// delete statefiles
 	err = p.Provisioner.Backend.RemoveStatefile(fmt.Sprintf("states/%d", poolId))
 	if err != nil {
-		return fmt.Errorf("failed to remove terraform statefiles: %v", err)
+		return fmt.Errorf("failed to remove terraform statefiles %d: %v", poolId, err)
 	}
 
 	// delete the Workspace from the database
 	_, err = p.DB.DB.Exec("delete from workspace_pool where _id = ?", poolId)
 	if err != nil {
-		return fmt.Errorf("failed to delete Workspace from database: %v", err)
+		return fmt.Errorf("failed to delete Workspace from database %d: %v", poolId, err)
 	}
 
 	return nil

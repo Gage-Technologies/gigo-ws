@@ -542,6 +542,14 @@ github.com/gage-technologies/gigo-lib v0.0.0-20240327164836-28d7b30c25a8 h1:gaQL
 github.com/gage-technologies/gigo-lib v0.0.0-20240327164836-28d7b30c25a8/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
 github.com/gage-technologies/gigo-lib v0.0.0-20240327165127-2fa9cc815f28 h1:IG5m0s889Mhqm1UhvEgbJZXgHyRGGbgT+PxImB+zTpg=
 github.com/gage-technologies/gigo-lib v0.0.0-20240327165127-2fa9cc815f28/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20240327171050-f87b15fa5132 h1:8o2jIuDOtuJlFodUynivLSkg9F+nvv+rPsH/rU9O988=
+github.com/gage-technologies/gigo-lib v0.0.0-20240327171050-f87b15fa5132/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20240327171604-95be7a71d8a5 h1:21cjNCmpSoVqFV73hRVGuXfwwcTU8naKCqKSCybB5BI=
+github.com/gage-technologies/gigo-lib v0.0.0-20240327171604-95be7a71d8a5/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20240327174007-b69f3f35e174 h1:s4IW5uaS2Ct9NqBTsR99fc1K69EXsmWhacsmWTlM9pw=
+github.com/gage-technologies/gigo-lib v0.0.0-20240327174007-b69f3f35e174/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
+github.com/gage-technologies/gigo-lib v0.0.0-20240327174036-f29dca9f5939 h1:SgY+77UBkbS38+c+0wBKW9VEDwqXyR24qC84S+rtwz0=
+github.com/gage-technologies/gigo-lib v0.0.0-20240327174036-f29dca9f5939/go.mod h1:cUQ56uLUxuAuzupj7haarDZnA17Mk85aWbZGqtcO/+g=
 github.com/gage-technologies/go-logrus-elasticsearch v0.0.0-20210908162149-c64f8e07bb9e h1:ui469cZfaOayIzw7jhRD+eoTHxwIk0JupCpjUiVmAao=
 github.com/gage-technologies/go-logrus-elasticsearch v0.0.0-20210908162149-c64f8e07bb9e/go.mod h1:ATmn/jsPrZ1vz80UKVGMk3s+oh4U2qIIiwnBoeTcVgc=
 github.com/gage-technologies/gotp v0.0.0-20220616155519-504b827694d9 h1:iXRx+UYaIn4a6tcXXGHPfrNUJ65Y8aiZDhxodtczTv0=

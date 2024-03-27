@@ -71,6 +71,8 @@ func shutdown(server *api.ProvisionerApiServer, clusterNode cluster.Node, cluste
 }
 
 func main() {
+	launchTime := time.Now()
+
 	// set timezone to US Central
 	err := os.Setenv("TZ", "America/Chicago")
 	if err != nil {
@@ -243,10 +245,13 @@ func main() {
 				Password:  cfg.EtcdConfig.Password,
 			},
 			LeaderRoutine: func(ctx context.Context) error {
-				go func() {
-					vpool.ResolveStateDeltas()
-					wsPool.ResolveStateDeltas()
-				}()
+				// we wait 15s to ensure that a ture leader has been established
+				if time.Since(launchTime) > 15*time.Second {
+					go func() {
+						vpool.ResolveStateDeltas()
+						wsPool.ResolveStateDeltas()
+					}()
+				}
 				return nil
 			},
 			FollowerRoutine: func(ctx context.Context) error {
