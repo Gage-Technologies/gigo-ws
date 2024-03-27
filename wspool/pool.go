@@ -60,11 +60,13 @@ type WorkspacePoolParams struct {
 type WorkspacePool struct {
 	WorkspacePoolParams
 	sflight singleflight.Group
+	wg      *pool.Pool
 }
 
 func NewWorkspacePool(params WorkspacePoolParams) *WorkspacePool {
 	pool := &WorkspacePool{
 		WorkspacePoolParams: params,
+		wg:                  pool.New().WithMaxGoroutines(10),
 	}
 
 	return pool
@@ -235,11 +237,11 @@ func (p *WorkspacePool) resolveStateDeltas() {
 		// get the count of available Workspaces in the subpool
 		var availableCount int
 		err := p.DB.DB.QueryRow(
-			"select count(*) from workspace_pool where container = ? and state = ? and memory = ? and cpu = ? and volume_size =?",
-			subpool.Container, models.WorkspacePoolStateAvailable, subpool.Memory, subpool.CPU, subpool.VolumeSize,
+			"select count(*) from workspace_pool where container = ? and (state = ? or (state = ? and create_start_timestamp > now() - interval 30 minute)) and memory = ? and cpu = ? and volume_size = ? and expiration < now()",
+			subpool.Container, models.WorkspacePoolStateAvailable, models.WorkspacePoolStateProvisioning, subpool.Memory, subpool.CPU, subpool.VolumeSize,
 		).Scan(&availableCount)
 		if err != nil {
-			p.Logger.Errorf("error querying for available Workspaces for subpool %d: %v", subpool.Container, err)
+			p.Logger.Errorf("error querying for available Workspaces for subpool %s: %v", subpool.Container, err)
 			continue
 		}
 
@@ -250,17 +252,14 @@ func (p *WorkspacePool) resolveStateDeltas() {
 
 			p.Logger.Debugf("provisioning %d Workspaces for subpool %s", neededCount, subpool.Container)
 
-			// create worker pool to launch workspace creations concurrently
-			wg := pool.New().WithMaxGoroutines(10)
-
 			// create the Workspaces
 			for i := 0; i < neededCount; i++ {
-				wg.Go(func() {
+				p.wg.Go(func() {
 					id := p.SfNode.Generate().Int64()
 					pooledWs := models.CreateWorkspacePool(
 						id,
 						subpool.Container,
-						models.WorkspacePoolStateAvailable,
+						models.WorkspacePoolStateProvisioning,
 						subpool.Memory,
 						subpool.CPU,
 						subpool.VolumeSize,
@@ -269,15 +268,6 @@ func (p *WorkspacePool) resolveStateDeltas() {
 						nil,
 					)
 
-					p.Logger.Debugf("provisioning wspool Workspace: %d", pooledWs.ID)
-					agent, _, err := p.provisionWorkspace(context.TODO(), pooledWs)
-					if err != nil {
-						p.Logger.Errorf("error provisioning Workspace pool %d: %v", pooledWs.ID, err)
-						return
-					}
-
-					pooledWs.Secret = agent.Token
-					pooledWs.AgentID = agent.ID
 					statements, err := pooledWs.ToSqlNative()
 					if err != nil {
 						p.Logger.Errorf("error converting Workspace pool to SQL: %v", err)
@@ -304,22 +294,43 @@ func (p *WorkspacePool) resolveStateDeltas() {
 						p.Logger.Error("error committing transaction: %v", err)
 						return
 					}
+
+					p.Logger.Debugf("provisioning wspool Workspace: %d", pooledWs.ID)
+					agent, _, err := p.provisionWorkspace(context.TODO(), pooledWs)
+					if err != nil {
+						p.Logger.Errorf("error provisioning Workspace pool %d: %v", pooledWs.ID, err)
+
+						// remove the workspace from the database
+						_, err = p.DB.DB.Exec(
+							"delete from workspace_pool  where _id = ?", pooledWs.ID,
+						)
+						if err == nil {
+							p.Logger.Errorf("failed to remove failed workspace pool from database %d: %v", pooledWs.ID, err)
+						}
+
+						return
+					}
+
+					_, err = p.DB.DB.Exec(
+						"update workspace_pool set state = ?, agent_id = ?, secret = uuid_to_bin(?) where _id = ?",
+						models.WorkspacePoolStateAvailable, agent.ID, agent.Token, pooledWs.ID,
+					)
+					if err != nil {
+						p.Logger.Errorf("failed to mark workspace as provisioned %d: %v", pooledWs.ID, err)
+					}
 				})
 			}
-
-			// wait for all of the creations to complete
-			wg.Wait()
 		}
 
 		// if the count of available Workspaces is greater than the pool size, we need to destroy some
 		if availableCount > subpool.PoolSize {
-			// query for the count of Workspaces that are available and not in use
+			// query for the workspaces that are available and not in use
 			res, err := p.DB.DB.Query(
-				"select _id from where container = ? and state = ? and memory = ? and cpu = ? and volume_size = ? limit ?",
-				subpool.Container, models.WorkspacePoolStateAvailable, subpool.Memory, subpool.CPU, subpool.VolumeSize, availableCount-subpool.PoolSize,
+				"select _id from where container = ? and (state = ? or (state = ? and create_start_timestamp > now() - interval 30 minute)) and memory = ? and cpu = ? and volume_size = ? limit ?",
+				subpool.Container, models.WorkspacePoolStateAvailable, models.WorkspacePoolStateProvisioning, subpool.Memory, subpool.CPU, subpool.VolumeSize, availableCount-subpool.PoolSize,
 			)
 			if err != nil {
-				p.Logger.Errorf("error querying for available Workspaces for subpool %d: %v", subpool.Container, err)
+				p.Logger.Errorf("error querying for available Workspaces for subpool %s: %v", subpool.Container, err)
 				continue
 			}
 
@@ -328,7 +339,7 @@ func (p *WorkspacePool) resolveStateDeltas() {
 				var id int64
 				err := res.Scan(&id)
 				if err != nil {
-					p.Logger.Errorf("error scanning row for available Workspaces for subpool %d: %v", subpool.Container, err)
+					p.Logger.Errorf("error scanning row for available Workspaces for subpool %s: %v", subpool.Container, err)
 					continue
 				}
 
@@ -337,17 +348,50 @@ func (p *WorkspacePool) resolveStateDeltas() {
 
 			_ = res.Close()
 
-			p.Logger.Debugf("destroying %d Workspaces for subpool %d", len(destroySet), subpool.Container)
+			p.Logger.Debugf("destroying %d Workspaces for subpool %s", len(destroySet), subpool.Container)
 		}
+	}
+
+	// get the stalled and expired workspaces in the subpool
+	rows, err := p.DB.DB.Query(
+		"select _id from workspace_pool where (state = ? and create_start_timestamp <= now() - interval 30 minute) or (expiration >= now() or expiration is null)",
+		models.WorkspacePoolStateProvisioning,
+	)
+	if err != nil {
+		p.Logger.Errorf("error querying for stalled workspaces: %v", err)
+	}
+	defer rows.Close()
+	// iterate over the results and add the ids to the destroy set
+	for rows.Next() {
+		var id int64
+		err := rows.Scan(&id)
+		if err != nil {
+			p.Logger.Errorf("error scanning row for stalled workspaces: %v", err)
+			continue
+		}
+
+		destroySet = append(destroySet, id)
 	}
 
 	// destroy the Workspaces that need to be destroyed
 	for _, id := range destroySet {
-		p.Logger.Debugf("destroying pool Workspace: %d", id)
-		err := p.destroyWorkspace(id)
-		if err != nil {
-			p.Logger.Errorf("error destroying Workspace %d: %v", id, err)
-		}
+		id := id
+		p.wg.Go(func() {
+			// mark the workspace as destroying
+			_, err := p.DB.DB.Exec(
+				"update workspace_pool set state = ? where _id = ?",
+				models.WorkspacePoolStateDestroying, id,
+			)
+			if err != nil {
+				p.Logger.Errorf("failed to mark workspace as destroying %d: %v", id, err)
+			}
+
+			p.Logger.Debugf("destroying pool Workspace: %d", id)
+			err = p.destroyWorkspace(id)
+			if err != nil {
+				p.Logger.Errorf("error destroying Workspace %d: %v", id, err)
+			}
+		})
 	}
 }
 
@@ -411,9 +455,9 @@ func (p *WorkspacePool) provisionWorkspace(ctx context.Context, pool *models.Wor
 			// use a new context here since we don't want this interrupted by
 			// drpc api call context - the api context could be cancelled
 			// mid-operation but we want this to complete async
-			_, err := p.Provisioner.Destroy(context.TODO(), module)
-			if err != nil {
-				p.Logger.Error(fmt.Errorf("failed to destroy workspace on create cleanup: %v", err))
+			_, derr := p.Provisioner.Destroy(context.TODO(), module)
+			if derr != nil {
+				p.Logger.Error(fmt.Errorf("failed to destroy workspace on create cleanup: %v", derr))
 			}
 		}
 
